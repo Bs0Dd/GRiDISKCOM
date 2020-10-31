@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/icos">
+        <file>gridiskbig.bmp</file>
+        <file>gridisk.ico</file>
+    </qresource>
+</RCC>

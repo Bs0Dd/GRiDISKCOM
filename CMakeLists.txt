@@ -37,11 +37,20 @@ add_executable(GRiDISKCOM
         ${SOURCE_DIR}/mainwindow.cpp
         ${SOURCE_DIR}/mainwindow.h
         ${SOURCE_DIR}/mainwindow.ui
+        ${SOURCE_DIR}/abbt.cpp
+        ${SOURCE_DIR}/abbt.h
+        ${SOURCE_DIR}/abbt.ui
+        ${SOURCE_DIR}/img.qrc
         ${SOURCE_DIR}/wrapper.h
         ${SOURCE_DIR}/wrapper.c
         ${TS_FILES}
+        ${SOURCE_DIR}/execico.rc
         )
 
-target_link_libraries(GRiDISKCOM PRIVATE Qt${QT_VERSION_MAJOR}::Widgets ccosclib)
+if(WIN32)
+    target_link_libraries(GRiDISKCOM PRIVATE Qt5::Widgets Qt${QT_VERSION_MAJOR}::Widgets ccosclib)
+else()
+    target_link_libraries(GRiDISKCOM PRIVATE Qt5::Widgets Qt${QT_VERSION_MAJOR}::Widgets ccosclib -no-pie)
+endif()
 
 qt5_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})

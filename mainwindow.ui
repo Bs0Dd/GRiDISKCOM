@@ -31,6 +31,10 @@
   <property name="windowTitle">
    <string>GRiDISK Commander</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="img.qrc">
+    <normaloff>:/icos/gridisk.ico</normaloff>:/icos/gridisk.ico</iconset>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QGroupBox" name="groupBox">
     <property name="geometry">
@@ -65,7 +69,7 @@
      <property name="font">
       <font>
        <family>Arial</family>
-       <pointsize>10</pointsize>
+       <pointsize>9</pointsize>
        <weight>50</weight>
        <bold>false</bold>
        <underline>false</underline>
@@ -275,11 +279,11 @@
       <x>10</x>
       <y>20</y>
       <width>81</width>
-      <height>41</height>
+      <height>21</height>
      </rect>
     </property>
     <property name="text">
-     <string>Open Disk</string>
+     <string>Open disk</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton_8">
@@ -288,7 +292,7 @@
       <x>710</x>
       <y>20</y>
       <width>81</width>
-      <height>41</height>
+      <height>21</height>
      </rect>
     </property>
     <property name="text">
@@ -298,10 +302,10 @@
    <widget class="QPushButton" name="pushButton_4">
     <property name="geometry">
      <rect>
-      <x>310</x>
+      <x>210</x>
       <y>20</y>
       <width>81</width>
-      <height>41</height>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
@@ -314,7 +318,7 @@
       <x>410</x>
       <y>20</y>
       <width>81</width>
-      <height>41</height>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
@@ -324,14 +328,14 @@
    <widget class="QPushButton" name="pushButton_3">
     <property name="geometry">
      <rect>
-      <x>210</x>
+      <x>110</x>
       <y>20</y>
       <width>81</width>
-      <height>41</height>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
-     <string>Save Disk</string>
+     <string>Save disk</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton_7">
@@ -340,7 +344,7 @@
       <x>610</x>
       <y>20</y>
       <width>81</width>
-      <height>41</height>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
@@ -350,14 +354,14 @@
    <widget class="QPushButton" name="pushButton_2">
     <property name="geometry">
      <rect>
-      <x>110</x>
-      <y>20</y>
+      <x>10</x>
+      <y>50</y>
       <width>81</width>
-      <height>41</height>
+      <height>21</height>
      </rect>
     </property>
     <property name="text">
-     <string>Close Disk</string>
+     <string>Close disk</string>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton_6">
@@ -366,7 +370,7 @@
       <x>510</x>
       <y>20</y>
       <width>81</width>
-      <height>41</height>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
@@ -411,6 +415,32 @@
      <string>Free space:</string>
     </property>
    </widget>
+   <widget class="QPushButton" name="pushButton_9">
+    <property name="geometry">
+     <rect>
+      <x>310</x>
+      <y>20</y>
+      <width>81</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Make dir</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="pushButton_10">
+    <property name="geometry">
+     <rect>
+      <x>710</x>
+      <y>50</y>
+      <width>81</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Extract all</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -418,7 +448,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>21</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -430,26 +460,26 @@
     <addaction name="actionSave_as"/>
     <addaction name="actionClose"/>
     <addaction name="separator"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuSettings">
+    <property name="title">
+     <string>Actions</string>
+    </property>
     <addaction name="actionAdd"/>
     <addaction name="actionCopy"/>
     <addaction name="actionRename"/>
     <addaction name="actionDelete"/>
     <addaction name="actionExtract"/>
-    <addaction name="separator"/>
-    <addaction name="actionExit"/>
-   </widget>
-   <widget class="QMenu" name="menuSettings">
-    <property name="title">
-     <string>Settings</string>
-    </property>
+    <addaction name="actionExtract_all"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
-     <string>Help</string>
+     <string>About</string>
     </property>
-    <addaction name="actionGFDITOOL_Help"/>
+    <addaction name="actionAbout_GRiDISK_COmmander"/>
     <addaction name="separator"/>
-    <addaction name="actionAbout_GFDITOOL"/>
+    <addaction name="actionAbout_Us"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -534,29 +564,6 @@
     <string>Ctrl+X</string>
    </property>
   </action>
-  <action name="actionGFDITOOL_Help">
-   <property name="text">
-    <string>GFDITOOL Help</string>
-   </property>
-   <property name="font">
-    <font>
-     <family>Arial</family>
-    </font>
-   </property>
-   <property name="shortcut">
-    <string>F1</string>
-   </property>
-  </action>
-  <action name="actionAbout_GFDITOOL">
-   <property name="text">
-    <string>About GFDITOOL</string>
-   </property>
-   <property name="font">
-    <font>
-     <family>Arial</family>
-    </font>
-   </property>
-  </action>
   <action name="actionExit">
    <property name="text">
     <string>Exit</string>
@@ -609,7 +616,27 @@
     <string>Ctrl+L</string>
    </property>
   </action>
+  <action name="actionAbout_GRiDISK_COmmander">
+   <property name="text">
+    <string>About GRiDISK Commander</string>
+   </property>
+  </action>
+  <action name="actionAbout_Us">
+   <property name="text">
+    <string>About Us</string>
+   </property>
+  </action>
+  <action name="actionExtract_all">
+   <property name="text">
+    <string>Extract all</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+X</string>
+   </property>
+  </action>
  </widget>
- <resources/>
+ <resources>
+  <include location="img.qrc"/>
+ </resources>
  <connections/>
 </ui>
