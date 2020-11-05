@@ -2,6 +2,9 @@
 #define ABBT_H
 
 #include <QDialog>
+#include <QDesktopServices>
+
+#define _PVER_ "v0.15-beta"
 
 namespace Ui {
 class abbt;
@@ -14,6 +17,7 @@ class abbt : public QDialog
 public:
     explicit abbt(QWidget *parent = nullptr);
     ~abbt();
+    void openrepo();
 
 private:
     Ui::abbt *ui;

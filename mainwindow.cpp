@@ -1,10 +1,10 @@
 ﻿#include "mainwindow.h"
 #include "./ui_mainwindow.h"
-#include "abbt.h"
 #include <iostream>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <vector>
+#include <fstream>
 
 extern "C"{
 #include <ccos_image.h>
@@ -16,7 +16,8 @@ extern "C"{
 
 using namespace std;
 
-vector<ccos_inode_t*> parents0, parents1, inodeon0, inodeon1, inodact;
+vector<ccos_inode_t*> inodeon0, inodeon1;
+ccos_inode_t* curdir0, *curdir1;
 
 QString ccos_get_file_version_qstr(ccos_inode_t* file) {
   uint8_t major = file->version_major;
@@ -25,6 +26,13 @@ QString ccos_get_file_version_qstr(ccos_inode_t* file) {
   QString ver = "%1.%2.%3";
   ver = ver.arg(major).arg(minor).arg(patch);
   return ver;
+}
+
+void copyf(const char* from, const char* to){
+    ifstream  src(from, ios::binary);
+    ofstream  dst(to, ios::binary);
+    dst << src.rdbuf();
+    dst.close();
 }
 
 QString ccos_date_to_qstr(ccos_date_t date) {
@@ -45,6 +53,7 @@ QString ccos_date_to_qstr(ccos_date_t date) {
 }
 
 void doListTable(ccos_inode_t** dirdata, int fils, int noRoot, uint8_t* dat, size_t siz, int curdisk, char* labd, Ui::MainWindow* ui){
+    vector<ccos_inode_t*> inodact;
     QTableWidget* tableWidget;
     QLabel* label;
     QGroupBox* box;
@@ -100,7 +109,6 @@ if (noRoot == 1){
     tableWidget->setItem(0, 5, tMod);
     fcount = 1;
 }
-    inodact.clear();
 for(int c = 0; c < fils; c++){
     memset(basename, 0, CCOS_MAX_FILE_NAME);
     memset(type, 0, CCOS_MAX_FILE_NAME);
@@ -151,11 +159,9 @@ for(int c = 0; c < fils; c++){
     }
 }
 if (curdisk == 0){
-    inodeon0.clear();
     inodeon0=inodact;
 }
 else if (curdisk == 1){
-    inodeon1.clear();
     inodeon1=inodact;
 }
 size_t free = ccos_calc_free_space(dat, siz);
@@ -168,6 +174,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    QMainWindow::setWindowTitle(QString("GRiDISK Commander ")+_PVER_);
     ui->tableWidget->horizontalHeader()->resizeSection(0, 155);
     ui->tableWidget->horizontalHeader()->resizeSection(2, szcor);
     ui->tableWidget->horizontalHeader()->resizeSection(3, 45);
@@ -199,6 +206,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->tableWidget_2, &QTableWidget::clicked, this, &MainWindow::setactive1);
     connect(ui->pushButton, &QPushButton::clicked, this, &MainWindow::Openf);
     connect(ui->pushButton_2, &QPushButton::clicked, this, &MainWindow::Closef);
+    connect(ui->pushButton_7, &QPushButton::clicked, this, &MainWindow::Dfils);
     connect(ui->actionAbout_GRiDISK_COmmander, &QAction::triggered, this, &MainWindow::aboutShow);
     connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::Openf);
     connect(ui->actionClose, &QAction::triggered, this, &MainWindow::Closef);
@@ -221,32 +229,26 @@ void MainWindow::enterDIR0(){
         dir = inodeon0[called -> row()];
     }
     if (called -> row() == 0 and nrot0== 1){
-        ccos_inode_t* dir;
         uint8_t* dat = NULL;
         size_t siz = 0;
-        read_file(name0.toStdString().c_str(), &dat, &siz);
+        read_file(".GRiTEMP/disk0.cah", &dat, &siz);
         ccos_inode_t* root = ccos_get_root_dir(dat, siz);
-        if (parents0.size() <2){
-           dir = ccos_get_root_dir(dat, siz);
-        }
-        else{
-            dir = parents0[parents0.size()-2];
-        }
-        parents0.pop_back();
         char* fname = short_string_to_string(ccos_get_file_name(root));
         uint16_t fils = 0;
         ccos_inode_t** dirdata = NULL;
-        ccos_get_dir_contents(dir, dat, &fils, &dirdata);
-        if (parents0.size() == 0){
+        curdir0 = (ccos_get_parent_dir(curdir0, dat));
+        ccos_get_dir_contents(curdir0, dat, &fils, &dirdata);
+        if (curdir0 == root){
             nrot0 = 0;
         }
         doListTable(dirdata, fils, nrot0, dat, siz, 0, fname, ui);
     }
     else if (ccos_is_dir(dir)){
-    parents0.push_back(dir);
+    posi0 = called -> row();
+    curdir0 = dir;
     uint8_t* dat = NULL;
     size_t siz = 0;
-    read_file(name0.toStdString().c_str(), &dat, &siz);
+    read_file(".GRiTEMP/disk0.cah", &dat, &siz);
     ccos_inode_t* root = ccos_get_root_dir(dat, siz);
     char* fname = short_string_to_string(ccos_get_file_name(root));
     uint16_t fils = 0;
@@ -260,6 +262,7 @@ void MainWindow::enterDIR0(){
 void MainWindow::enterDIR1(){
     QTableWidgetItem* called = ui->tableWidget_2->currentItem();
     ccos_inode_t* dir;
+    posi1 = called -> row();
     if (nrot1 == 1 and called -> row() != 0){
         dir = inodeon1[called -> row()-1];
     }
@@ -267,32 +270,25 @@ void MainWindow::enterDIR1(){
         dir = inodeon1[called -> row()];
     }
     if (called -> row() == 0 and nrot1== 1){
-        ccos_inode_t* dir;
         uint8_t* dat = NULL;
         size_t siz = 0;
-        read_file(name1.toStdString().c_str(), &dat, &siz);
+        read_file(".GRiTEMP/disk1.cah", &dat, &siz);
         ccos_inode_t* root = ccos_get_root_dir(dat, siz);
-        if (parents1.size() <2){
-           dir = ccos_get_root_dir(dat, siz);
-        }
-        else{
-            dir = parents1[parents1.size()-2];
-        }
-        parents1.pop_back();
         char* fname = short_string_to_string(ccos_get_file_name(root));
         uint16_t fils = 0;
         ccos_inode_t** dirdata = NULL;
-        ccos_get_dir_contents(dir, dat, &fils, &dirdata);
-        if (parents1.size() == 0){
+        curdir1 = (ccos_get_parent_dir(curdir1, dat));
+        ccos_get_dir_contents(curdir1, dat, &fils, &dirdata);
+        if (curdir1 == root){
             nrot1 = 0;
         }
         doListTable(dirdata, fils, nrot1, dat, siz, 1, fname, ui);
     }
     else if (ccos_is_dir(dir)){
-    parents1.push_back(dir);
+    curdir1 = dir;
     uint8_t* dat = NULL;
     size_t siz = 0;
-    read_file(name1.toStdString().c_str(), &dat, &siz);
+    read_file(".GRiTEMP/disk1.cah", &dat, &siz);
     ccos_inode_t* root = ccos_get_root_dir(dat, siz);
     char* fname = short_string_to_string(ccos_get_file_name(root));
     uint16_t fils = 0;
@@ -304,17 +300,54 @@ void MainWindow::enterDIR1(){
 }
 
 void MainWindow::Dfils(){
-    QTableWidget* tableWidget;
-    if (acdisk == 0){
-        tableWidget = ui->tableWidget;
+    uint8_t* dat = NULL;
+    size_t siz = 0;
+    if (acdisk == 0 and isop0 == 1){
+        read_file(".GRiTEMP/disk0.cah", &dat, &siz);
+        QList<QTableWidgetItem *> called = ui->tableWidget->selectedItems();
+        for (int t = 0; t< called.size(); t++){
+            ccos_delete_file(dat, siz, inodeon0[called[t]->row()- nrot0]);
+        }
+        save_image(".GRiTEMP/disk0.cah", dat, siz, true);
+        ccos_inode_t* root = ccos_get_root_dir(dat, siz);
+        char* fname = short_string_to_string(ccos_get_file_name(root));
+        uint16_t fils = 0;
+        ccos_inode_t** dirdata = NULL;
+        if (posi0 == 0){
+            root = ccos_get_root_dir(dat, siz);
+            curdir0 = root;
+            ccos_get_dir_contents(root, dat, &fils, &dirdata);
+        }
+        else if (ccos_get_parent_dir(curdir0, dat) == root){
+            ccos_get_dir_contents(root, dat, &fils, &dirdata);
+            curdir0 = dirdata[posi0];
+            ccos_get_dir_contents(dirdata[posi0], dat, &fils, &dirdata);
+        }
+        else{
+            ccos_get_dir_contents(ccos_get_parent_dir(curdir0, dat), dat, &fils, &dirdata);
+            curdir0 = dirdata[posi0];
+            ccos_get_dir_contents(dirdata[posi0], dat, &fils, &dirdata);
+        }
+        doListTable(dirdata, fils, nrot0, dat, siz, 0, fname, ui);
     }
-    else{
-        tableWidget = ui->tableWidget_2;
+    else if (acdisk == 1 and isop1 == 1){
+        read_file(".GRiTEMP/disk1.cah", &dat, &siz);
+        QList<QTableWidgetItem *> called = ui->tableWidget_2->selectedItems();
+        for (int t = 0; t< called.size(); t++){
+            ccos_delete_file(dat, siz, inodeon1[called[t]->row()- nrot1]);
+        }
+        read_file(".GRiTEMP/disk1.cah", &dat, &siz);
+        ccos_inode_t* root = ccos_get_root_dir(dat, siz);
+        char* fname = short_string_to_string(ccos_get_file_name(root));
+        uint16_t fils = 0;
+        ccos_inode_t** dirdata = NULL;
+        ccos_get_dir_contents(curdir1, dat, &fils, &dirdata);
+        doListTable(dirdata, fils, nrot1, dat, siz, 1, fname, ui);
     }
-
 }
 
 void MainWindow::Openf(){
+    MKDIR(".GRiTEMP", 0777);
     QString name = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img)");
     uint8_t* dat = NULL;
     size_t siz = 0;
@@ -332,17 +365,30 @@ void MainWindow::Openf(){
         panel = acdisk;
         if(acdisk == 0){
             name0 = name;
+            char opn[] = ".GRiTEMP/disk0.cah";
+            copyf(name.toStdString().c_str(), opn);
+            inodeon0.clear();
+
         }
         else{
             name1 = name;
+            char opn[] = ".GRiTEMP/disk1.cah";
+            copyf(name.toStdString().c_str(), opn);
+            inodeon1.clear();
         }
     }
     else if (isop0 == 1){
+        inodeon1.clear();
+        char opn[] = ".GRiTEMP/disk1.cah";
+        copyf(name.toStdString().c_str(), opn);
         panel = 1;
         isop1 = 1;
         name1 = name;
     }
     else if (isop0 == 0) {
+        inodeon0.clear();
+        char opn[] = ".GRiTEMP/disk0.cah";
+        copyf(name.toStdString().c_str(), opn);
         isop0 = 1;
         name0 = name;
     }
@@ -351,6 +397,12 @@ void MainWindow::Openf(){
     ccos_inode_t** dirdata = NULL;
     ccos_get_dir_contents(root, dat, &fils, &dirdata);
     char* fname = short_string_to_string(ccos_get_file_name(root));
+    if (panel == 1){
+        curdir0 = root;
+    }
+    else{
+        curdir1 = root;
+    }
     doListTable(dirdata, fils, 0, dat, siz, panel, fname, ui);
 }
 
@@ -358,21 +410,21 @@ void MainWindow::Closef(){
     QTableWidget* tableWidget;
     if (acdisk == 0){
         tableWidget = ui->tableWidget;
-        parents0.clear();
         inodeon0.clear();
         isop0 = 0;
         name0 = "";
         ui->label->setText("Free space:");
         ui->groupBox->setTitle("Disk I - No disk");
+        remove(".GRiTEMP/disk0.cah");
     }
     else{
         tableWidget = ui->tableWidget_2;
-        parents1.clear();
         inodeon1.clear();
         isop1 = 0;
         name1 = "";
         ui->label_2->setText("Free space:");
         ui->groupBox_2->setTitle("Disk II - No disk");
+        remove(".GRiTEMP/disk1.cah");
     }
     for(int row= tableWidget->rowCount(); 0<=row; row--){
         tableWidget-> removeRow(row);

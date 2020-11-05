@@ -3,11 +3,14 @@
 
 #include <QMainWindow>
 #include "abbt.h"
+#include "sys/stat.h"
 
 #if defined(WIN32)
 #define szcor 20
+#define MKDIR(filename, mode) mkdir(filename)
 #else
 #define szcor 42
+#define MKDIR(filename, mode) mkdir(filename, mode)
 #endif
 
 using namespace std;
@@ -26,8 +29,12 @@ public:
     int acdisk = 0;
     int isop0 = 0;
     int isop1 = 0;
+    int isch0 = 0;
+    int isch1 = 0;
     int nrot0 = 0;
     int nrot1 = 0;
+    int posi0 = 0;
+    int posi1 = 0;
     QFont diskfont;
     void setactive0();
     void setactive1();
