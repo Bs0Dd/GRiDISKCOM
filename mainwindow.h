@@ -29,12 +29,12 @@ public:
     int acdisk = 0;
     int isop0 = 0;
     int isop1 = 0;
-    int isch0 = 0;
-    int isch1 = 0;
     int nrot0 = 0;
     int nrot1 = 0;
-    int posi0 = 0;
-    int posi1 = 0;
+    uint8_t* dat0 = NULL;
+    size_t siz0 = 0;
+    uint8_t* dat1 = NULL;
+    size_t siz1 = 0;
     QFont diskfont;
     void setactive0();
     void setactive1();
@@ -43,7 +43,17 @@ public:
     void enterDIR1();
     void Closef();
     void aboutShow();
-    void Dfils();
+    void Delete();
+    void Extall();
+    void Ext();
+    void Save();
+    void SaveAs();
+    void Add();
+    void MkDir();
+    void Copy();
+    void Ren();
+    void aboutQtShow();
+    void closeEvent(QCloseEvent *event);
     QString name0, name1;
 private:
     Ui::MainWindow *ui;

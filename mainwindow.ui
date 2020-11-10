@@ -478,7 +478,9 @@
      <string>About</string>
     </property>
     <addaction name="separator"/>
-    <addaction name="actionAbout_GRiDISK_COmmander"/>
+    <addaction name="actionAbout"/>
+    <addaction name="separator"/>
+    <addaction name="actionAbout_Qt"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -619,14 +621,9 @@
     <string>Ctrl+L</string>
    </property>
   </action>
-  <action name="actionAbout_GRiDISK_COmmander">
+  <action name="actionAbout">
    <property name="text">
     <string>About GRiDISK Commander</string>
-   </property>
-  </action>
-  <action name="actionAbout_Us">
-   <property name="text">
-    <string>About Us</string>
    </property>
   </action>
   <action name="actionExtract_all">
@@ -635,6 +632,11 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+X</string>
+   </property>
+  </action>
+  <action name="actionAbout_Qt">
+   <property name="text">
+    <string>About Qt</string>
    </property>
   </action>
  </widget>
