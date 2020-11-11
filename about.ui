@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>abbt</class>
- <widget class="QDialog" name="abbt">
+ <class>about</class>
+ <widget class="QDialog" name="about">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -272,7 +272,7 @@
   <connection>
    <sender>pushButton_2</sender>
    <signal>clicked(bool)</signal>
-   <receiver>abbt</receiver>
+   <receiver>about</receiver>
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">

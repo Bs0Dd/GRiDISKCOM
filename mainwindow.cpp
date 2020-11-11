@@ -5,6 +5,8 @@
 #include <QInputDialog>
 #include <vector>
 
+#include <iostream>
+
 extern "C"{
 #include <ccos_image.h>
 #include <ccos_private.h>
@@ -181,6 +183,9 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    trace_init(1); //TRACE MESSAGES ENABLE
+
     QMainWindow::setWindowTitle(QString("GRiDISK Commander ")+_PVER_);
     ui->tableWidget->horizontalHeader()->resizeSection(0, 155);
     ui->tableWidget->horizontalHeader()->resizeSection(2, szcor);
@@ -230,7 +235,7 @@ MainWindow::MainWindow(QWidget *parent)
 }
 
 void MainWindow::aboutShow(){
-     abss = new abbt(this);
+     abss = new about(this);
      abss->exec();
 }
 
@@ -342,7 +347,7 @@ void MainWindow::Extall(){
     if (acdisk == 0){
         todir = QFileDialog::getExistingDirectory(this, tr("Extract all to"), "",
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-        if (name == ""){
+        if (todir == ""){
             return;
         }
         dat = dat0;
@@ -352,7 +357,7 @@ void MainWindow::Extall(){
     else{
         todir = QFileDialog::getExistingDirectory(this, tr("Extract all to"), "",
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-        if (name == ""){
+        if (todir == ""){
             return;
         }
         dat = dat1;
@@ -432,7 +437,7 @@ void MainWindow::MkDir(){
 }
 
 void MainWindow::Openf(){
-    QString name = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img)");
+    QString name = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img *.IMG)");
     uint8_t* dat = NULL;
     size_t siz = 0;
     read_file(name.toStdString().c_str(), &dat, &siz);

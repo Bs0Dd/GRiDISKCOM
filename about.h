@@ -1,5 +1,5 @@
-#ifndef ABBT_H
-#define ABBT_H
+#ifndef ABOUT_H
+#define ABOUT_H
 
 #include <QDialog>
 #include <QDesktopServices>
@@ -7,20 +7,20 @@
 #define _PVER_ "v0.15-beta"
 
 namespace Ui {
-class abbt;
+class about;
 }
 
-class abbt : public QDialog
+class about : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit abbt(QWidget *parent = nullptr);
-    ~abbt();
+    explicit about(QWidget *parent = nullptr);
+    ~about();
     void openrepo();
 
 private:
-    Ui::abbt *ui;
+    Ui::about *ui;
 };
 
 #endif // ABBT_H

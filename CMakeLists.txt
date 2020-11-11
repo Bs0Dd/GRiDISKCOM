@@ -27,19 +27,20 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets LinguistTools REQUIRED)
-find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets LinguistTools REQUIRED)
-
-set(TS_FILES GRiDISKCOM_en_US.ts)
+find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets REQUIRED)
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 
 add_executable(GRiDISKCOM
         ${SOURCE_DIR}/main.cpp
         ${SOURCE_DIR}/mainwindow.cpp
         ${SOURCE_DIR}/mainwindow.h
         ${SOURCE_DIR}/mainwindow.ui
-        ${SOURCE_DIR}/abbt.cpp
-        ${SOURCE_DIR}/abbt.h
-        ${SOURCE_DIR}/abbt.ui
+        ${SOURCE_DIR}/about.cpp
+        ${SOURCE_DIR}/about.h
+        ${SOURCE_DIR}/about.ui
+        ${SOURCE_DIR}/rename.cpp
+        ${SOURCE_DIR}/rename.h
+        ${SOURCE_DIR}/rename.ui
         ${SOURCE_DIR}/img.qrc
         ${SOURCE_DIR}/wrapper.h
         ${SOURCE_DIR}/wrapper.c
@@ -52,5 +53,3 @@ if(WIN32)
 else()
     target_link_libraries(GRiDISKCOM PRIVATE Qt5::Widgets Qt${QT_VERSION_MAJOR}::Widgets ccosclib -no-pie)
 endif()
-
-qt5_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})

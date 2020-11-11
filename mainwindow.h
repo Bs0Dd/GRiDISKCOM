@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "abbt.h"
+#include "about.h"
 #include "sys/stat.h"
 
 #if defined(WIN32)
@@ -57,6 +57,6 @@ public:
     QString name0, name1;
 private:
     Ui::MainWindow *ui;
-    abbt *abss;
+    about *abss;
 };
 #endif // MAINWINDOW_H
