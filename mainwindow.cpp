@@ -1,4 +1,4 @@
-﻿#include "mainwindow.h"
+#include "mainwindow.h"
 #include "./ui_mainwindow.h"
 #include <QFileDialog>
 #include <QMessageBox>
@@ -17,10 +17,9 @@ extern "C"{
 
 using namespace std;
 
-vector<ccos_inode_t*> inodeon0, inodeon1;
-ccos_inode_t* curdir0, *curdir1;
-int isch0 = 0;
-int isch1 = 0;
+vector<ccos_inode_t*> inodeon[2];
+ccos_inode_t* curdir[2];
+int isch[2];
 
 QString ccos_get_file_version_qstr(ccos_inode_t* file) {
   uint8_t major = file->version_major;
@@ -48,39 +47,65 @@ QString ccos_date_to_qstr(ccos_date_t date) {
   return qdat;
 }
 
+void drawempty(int mod, QTableWidget* tableWidget){
+    QTableWidgetItem *tFname, *tType, *tSize, *tVer, *tCreate, *tMod;
+    tFname = new QTableWidgetItem();
+    tType = new QTableWidgetItem();
+    tSize = new QTableWidgetItem();
+    tVer = new QTableWidgetItem();
+    tCreate = new QTableWidgetItem();
+    tMod = new QTableWidgetItem();
+    if (mod == 0){
+        tFname->setText("<EMPTY>");
+    }
+    else{
+        tFname->setText("<EMPTY IMAGE>");
+    }
+    tFname->setFlags(tFname->flags() ^ Qt::ItemIsEditable);
+    tType->setFlags(tType->flags() ^ Qt::ItemIsEditable);
+    tSize->setFlags(tSize->flags() ^ Qt::ItemIsEditable);
+    tVer->setFlags(tVer->flags() ^ Qt::ItemIsEditable);
+    tCreate->setFlags(tCreate->flags() ^ Qt::ItemIsEditable);
+    tMod->setFlags(tMod->flags() ^ Qt::ItemIsEditable);
+    tableWidget->insertRow(0);
+    tableWidget->setItem(0, 0, tFname);
+    tableWidget->setItem(0, 1, tType);
+    tableWidget->setItem(0, 2, tSize);
+    tableWidget->setItem(0, 3, tVer);
+    tableWidget->setItem(0, 4, tCreate);
+    tableWidget->setItem(0, 5, tMod);
+}
+
 void doListTable(ccos_inode_t** dirdata, int fils, int noRoot, uint8_t* dat, size_t siz, int curdisk, char* labd, Ui::MainWindow* ui){
-    vector<ccos_inode_t*> inodact;
     QTableWidget* tableWidget;
     QLabel* label;
     QGroupBox* box;
     QString disk, msg;
-    int isch;
+    inodeon[curdisk].clear();
     if (curdisk == 0){
         tableWidget = ui->tableWidget;
         label = ui->label;
         box = ui->groupBox;
         disk = "I";
-        isch = isch0;
     }
     else{
         tableWidget = ui->tableWidget_2;
         label = ui->label_2;
         box = ui->groupBox_2;
         disk = "II";
-        isch = isch0;
     }
     for(int row= tableWidget->rowCount(); 0<=row; row--){
         tableWidget-> removeRow(row);
     }
     if (strlen(labd) == 0){
-        if (isch == 0){
+        if (isch[curdisk] == 0){
         msg = "Disk %1 - No label";}
         else{
         msg = "Disk %1 - No label*";}
         box->setTitle(msg.arg(disk));
     }
     else{
-        if (isch == 0){
+        if (isch[curdisk] == 0){
         msg = "Disk %1 -%2";}
         else{
         msg = "Disk %1 -%2*";}
@@ -112,7 +137,7 @@ if (noRoot == 1){
     tableWidget->setItem(0, 3, tVer);
     tableWidget->setItem(0, 4, tCreate);
     tableWidget->setItem(0, 5, tMod);
-    inodact.insert(inodact.begin(), 0x0000000);
+    inodeon[curdisk].insert(inodeon[curdisk].begin(), 0x0000000);
     fcount = 1;
 }
 for(int c = 0; c < fils; c++){
@@ -145,7 +170,7 @@ for(int c = 0; c < fils; c++){
     tMod->setText(ccos_date_to_qstr(ccos_get_mod_date(dirdata[c])));
     tMod->setFlags(tMod->flags() ^ Qt::ItemIsEditable);
     if (ccos_is_dir(dirdata[c])){
-        inodact.insert(inodact.begin() + fcount,dirdata[c]);
+        inodeon[curdisk].insert(inodeon[curdisk].begin() + fcount,dirdata[c]);
         tableWidget->insertRow(fcount);
         tableWidget->setItem(fcount, 0, tFname);
         tableWidget->setItem(fcount, 1, tType);
@@ -156,7 +181,7 @@ for(int c = 0; c < fils; c++){
         fcount++;
     }
     else{
-    inodact.push_back(dirdata[c]);
+    inodeon[curdisk].push_back(dirdata[c]);
     int row = tableWidget->rowCount();
     tableWidget->insertRow(row);
     tableWidget->setItem(row, 0, tFname);
@@ -167,15 +192,13 @@ for(int c = 0; c < fils; c++){
     tableWidget->setItem(row, 5, tMod);
     }
 }
-if (curdisk == 0){
-    inodeon0=inodact;
-}
-else if (curdisk == 1){
-    inodeon1=inodact;
-}
 size_t free = ccos_calc_free_space(dat, siz);
 msg = "Free space: %1 bytes.";
 label->setText(msg.arg(free));
+if (inodeon[curdisk].size()==0){
+    drawempty(1, tableWidget);
+    inodeon[curdisk].insert(inodeon[curdisk].begin(), 0x0000000);
+}
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -197,6 +220,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tableWidget_2->horizontalHeader()->resizeSection(3, 45);
     ui->tableWidget_2->horizontalHeader()->resizeSection(4, 80);
     ui->tableWidget_2->horizontalHeader()->resizeSection(5, 80);
+    drawempty(0, ui->tableWidget);
+    drawempty(0, ui->tableWidget_2);
     diskfont.setFamily(QString::fromUtf8("Arial"));
     diskfont.setPointSize(9);
     diskfont.setUnderline(false);
@@ -227,11 +252,18 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::Openf);
     connect(ui->actionSave, &QAction::triggered, this, &MainWindow::Save);
     connect(ui->actionSave_as, &QAction::triggered, this, &MainWindow::SaveAs);
+    connect(ui->actionMake_dir, &QAction::triggered, this, &MainWindow::MkDir);
+    connect(ui->actionChange_label, &QAction::triggered, this, &MainWindow::Label);
     connect(ui->actionClose, &QAction::triggered, this, &MainWindow::Closef);
+    connect(ui->actionRename, &QAction::triggered, this, &MainWindow::Ren);
     connect(ui->actionDelete, &QAction::triggered, this, &MainWindow::Delete);
     connect(ui->actionExtract_all, &QAction::triggered, this, &MainWindow::Extall);
-    connect(ui->tableWidget, &QTableWidget::cellActivated, this, &MainWindow::enterDIR0);
-    connect(ui->tableWidget_2, &QTableWidget::cellActivated, this, &MainWindow::enterDIR1);
+    connect(ui->tableWidget, &QTableWidget::cellActivated, this, &MainWindow::enterDIR);
+    connect(ui->tableWidget_2, &QTableWidget::cellActivated, this, &MainWindow::enterDIR);
+    dat[0]= NULL;
+    dat[1]= NULL;
+    siz[0]= 0;
+    siz[1]= 0;
 }
 
 void MainWindow::aboutShow(){
@@ -248,203 +280,157 @@ void MainWindow::closeEvent(QCloseEvent *event)
     QMainWindow::closeEvent(event);
 }
 
-void MainWindow::enterDIR0(){
-    QTableWidgetItem* called = ui->tableWidget->currentItem();
+void MainWindow::enterDIR(){
+    QTableWidget* tw;
+    if (isop[acdisk] == 1){
+    if (acdisk ==0){
+        tw= ui->tableWidget;
+    }
+    else{
+        tw= ui->tableWidget_2;
+    }
+    QTableWidgetItem* called = tw->currentItem();
     ccos_inode_t* dir;
-    dir = inodeon0[called -> row()];
-    if (called -> row() == 0 and nrot0== 1){
-        ccos_inode_t* root = ccos_get_root_dir(dat0, siz0);
+    dir = inodeon[acdisk][called -> row()];
+    if (dir == 0x0000000 and nrot[acdisk]== 0){
+        return;
+    }
+    if (called -> row() == 0 and nrot[acdisk]== 1){
+        ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
         char* fname = short_string_to_string(ccos_get_file_name(root));
         uint16_t fils = 0;
         ccos_inode_t** dirdata = NULL;
-        curdir0 = (ccos_get_parent_dir(curdir0, dat0));
-        ccos_get_dir_contents(curdir0, dat0, &fils, &dirdata);
-        if (curdir0 == root){
-            nrot0 = 0;
+        curdir[acdisk] = (ccos_get_parent_dir(curdir[acdisk], dat[acdisk]));
+        ccos_get_dir_contents(curdir[acdisk], dat[acdisk], &fils, &dirdata);
+        if (curdir[acdisk] == root){
+            nrot[acdisk] = 0;
         }
-        doListTable(dirdata, fils, nrot0, dat0, siz0, 0, fname, ui);
+        doListTable(dirdata, fils, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, fname, ui);
     }
     else if (ccos_is_dir(dir)){
-    curdir0 = dir;
-    ccos_inode_t* root = ccos_get_root_dir(dat0, siz0);
+    curdir[acdisk] = dir;
+    ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
     char* fname = short_string_to_string(ccos_get_file_name(root));
     uint16_t fils = 0;
     ccos_inode_t** dirdata = NULL;
-    ccos_get_dir_contents(dir, dat0, &fils, &dirdata);
-    nrot0 = 1;
-    doListTable(dirdata, fils, nrot0, dat0, siz0, 0, fname, ui);
+    ccos_get_dir_contents(dir, dat[acdisk], &fils, &dirdata);
+    nrot[acdisk] = 1;
+    doListTable(dirdata, fils, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, fname, ui);
     } 
 }
-
-void MainWindow::enterDIR1(){
-    QTableWidgetItem* called = ui->tableWidget_2->currentItem();
-    ccos_inode_t* dir;
-    dir = inodeon1[called -> row()];
-    if (called -> row() == 0 and nrot1== 1){
-        ccos_inode_t* root = ccos_get_root_dir(dat1, siz1);
-        char* fname = short_string_to_string(ccos_get_file_name(root));
-        uint16_t fils = 0;
-        ccos_inode_t** dirdata = NULL;
-        curdir1 = (ccos_get_parent_dir(curdir1, dat1));
-        ccos_get_dir_contents(curdir1, dat1, &fils, &dirdata);
-        if (curdir1 == root){
-            nrot1 = 0;
-        }
-        doListTable(dirdata, fils, nrot1, dat1, siz1, 1, fname, ui);
-    }
-    else if (ccos_is_dir(dir)){
-    curdir1 = dir;
-    ccos_inode_t* root = ccos_get_root_dir(dat1, siz1);
-    char* fname = short_string_to_string(ccos_get_file_name(root));
-    uint16_t fils = 0;
-    ccos_inode_t** dirdata = NULL;
-    ccos_get_dir_contents(dir, dat1, &fils, &dirdata);
-    nrot1 = 1;
-    doListTable(dirdata, fils, nrot1, dat1, siz1, 1, fname, ui);
-    }
 }
 
 void MainWindow::Delete(){
-    if (acdisk == 0 and isop0 == 1){
-        QList<QTableWidgetItem *> called = ui->tableWidget->selectedItems();
+    QTableWidget* tw;
+    if (isop[acdisk] == 1){
+        if (acdisk ==0){
+            tw= ui->tableWidget;
+        }
+        else{
+            tw= ui->tableWidget_2;
+        }
+        QList<QTableWidgetItem *> called = tw->selectedItems();
         for (int t = 0; t< called.size(); t+=6){
-            if (inodeon0[called[t]->row()]==0x0000000){
+            if (inodeon[acdisk][called[t]->row()]==0x0000000){
                 continue;
             }
-            ccos_delete_file(dat0, siz0, inodeon0[called[t]->row()]);
+            ccos_delete_file(dat[acdisk], siz[acdisk], inodeon[acdisk][called[t]->row()]);
         }
-        ccos_inode_t* root = ccos_get_root_dir(dat0, siz0);
+        ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
         char* fname = short_string_to_string(ccos_get_file_name(root));
         uint16_t fils = 0;
         ccos_inode_t** dirdata = NULL;
-        isch0 = 1;
-        ccos_get_dir_contents(curdir0, dat0, &fils, &dirdata);
-        doListTable(dirdata, fils, nrot0, dat0, siz0, 0, fname, ui);
+        isch[acdisk] = 1;
+        ccos_get_dir_contents(curdir[acdisk], dat[acdisk], &fils, &dirdata);
+        doListTable(dirdata, fils, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, fname, ui);
     }
-    else if (acdisk == 1 and isop1 == 1){
-        QList<QTableWidgetItem *> called = ui->tableWidget_2->selectedItems();
-        for (int t = 0; t< called.size(); t+=6){
-            if (inodeon1[called[t]->row()]==0x0000000){
-                continue;
-            }
-            ccos_delete_file(dat1, siz1, inodeon1[called[t]->row()]);
-        }
-        ccos_inode_t* root = ccos_get_root_dir(dat1, siz1);
-        char* fname = short_string_to_string(ccos_get_file_name(root));
-        uint16_t fils = 0;
-        ccos_inode_t** dirdata = NULL;
-        isch1 = 1;
-        ccos_get_dir_contents(curdir1, dat1, &fils, &dirdata);
-        doListTable(dirdata, fils, nrot1, dat1, siz1, 1, fname, ui);
+}
+
+void MainWindow::Label(){
+    if (isop[acdisk] == 1){
+        QString name = QInputDialog::getText(this, tr("New label"),
+                                         tr("Set new label for the disk:"), QLineEdit::Normal,"");
     }
+
+}
+
+void  MainWindow::Ren(){
+    rnam = new Rename(this);
+    rnam->exec();
 }
 
 void MainWindow::Extall(){
-    uint8_t* dat = NULL;
-    size_t siz = 0;
-    QString name, todir;
-
-    if (acdisk == 0){
-        todir = QFileDialog::getExistingDirectory(this, tr("Extract all to"), "",
+    QString todir = QFileDialog::getExistingDirectory(this, tr("Extract all to"), "",
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-        if (todir == ""){
-            return;
-        }
-        dat = dat0;
-        siz = siz0;
-        name = name0;
-    }
-    else{
-        todir = QFileDialog::getExistingDirectory(this, tr("Extract all to"), "",
-                                                          QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-        if (todir == ""){
-            return;
-        }
-        dat = dat1;
-        siz = siz1;
-        name = name1;
-    }
-    dump_image_to(name.toStdString().c_str(), dat, siz, todir.toStdString().c_str());
+    dump_image_to(name[acdisk].toStdString().c_str(), dat[acdisk], siz[acdisk], todir.toStdString().c_str());
 }
 
 void MainWindow::Save(){
-    if (acdisk == 0 and isch0 == 1){
-        save_image(name0.toStdString().c_str(), dat0, siz0, true);
-        isch0 = 0;
-        ui->groupBox->setTitle(ui->groupBox->title().left(ui->groupBox->title().size()-1));
-    }
-    else if (acdisk == 1 and isch1 == 1){
-        save_image(name1.toStdString().c_str(), dat1, siz1, true);
-        isch1 = 0;
-        ui->groupBox_2->setTitle(ui->groupBox_2->title().left(ui->groupBox_2->title().size()-1));
+    QGroupBox* gb;
+    if (isch[acdisk] == 1){
+        if (acdisk ==0){
+            gb= ui->groupBox;
+        }
+        else{
+            gb= ui->groupBox_2;
+        }
+        save_image(name[acdisk].toStdString().c_str(), dat[acdisk], siz[acdisk], true);
+        isch[acdisk] = 0;
+       gb->setTitle(gb->title().left(gb->title().size()-1));
     }
 }
 
 void MainWindow::SaveAs(){
-    if (acdisk == 0 and isop0 == 1){
-        QString name = QFileDialog::getSaveFileName(this, tr("Save as"), "", "GRiD Image Files (*.img)");
-        if (name == ""){
+    QGroupBox* gb;
+    if (isop[acdisk] == 1){
+        if (acdisk ==0){
+            gb= ui->groupBox;
+        }
+        else{
+            gb= ui->groupBox_2;
+        }
+        QString nameQ = QFileDialog::getSaveFileName(this, tr("Save as"), "", "GRiD Image Files (*.img)");
+        if (nameQ == ""){
             return;
         }
-        save_image(name.toStdString().c_str(), dat0, siz0, true);
-        name0 = name;
-        isch0 = 0;
-        ui->groupBox->setTitle(ui->groupBox->title().left(ui->groupBox->title().size()-1));
-    }
-    else if (acdisk == 1 and isop1 == 1){
-        QString name = QFileDialog::getSaveFileName(this, tr("Save as"), "", "GRiD Image Files (*.img)");
-        if (name == ""){
-            return;
-        }
-        save_image(name.toStdString().c_str(), dat1, siz1, true);
-        name1 = name;
-        isch1 = 0;
-        ui->groupBox_2->setTitle(ui->groupBox_2->title().left(ui->groupBox_2->title().size()-1));
+        save_image(nameQ.toStdString().c_str(), dat[acdisk], siz[acdisk], true);
+        name[acdisk] = nameQ;
+        isch[acdisk] = 0;
+        gb->setTitle(gb->title().left(gb->title().size()-1));
     }
 }
 
 void MainWindow::MkDir(){
-    if (acdisk == 0 and isop0 == 1){
+    if (isop[acdisk] == 1){
+        if (nrot[acdisk] == 1){
+            QMessageBox msgBox;
+            msgBox.critical(0,"Make dir",
+                            "Sorry, but GRiD support directories only in root!");
+            return;
+        }
         QString name = QInputDialog::getText(this, tr("Make dir"),
                                              tr("New directory name:"), QLineEdit::Normal,"");
         if (name == ""){
             return;
         }
-        ccos_inode_t* root = ccos_get_root_dir(dat0, siz0);
+        ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
         uint16_t fils = 0;
         ccos_inode_t** dirdata = NULL;
-        ccos_create_dir(curdir0, name.toStdString().c_str(), dat0, siz0);
+        ccos_create_dir(root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]);
         char* fname = short_string_to_string(ccos_get_file_name(root));
-        ccos_get_dir_contents(curdir0, dat0, &fils, &dirdata);
-        isch0 = 1;
-        doListTable(dirdata, fils, nrot0, dat0, siz0, 0, fname, ui);
-    }
-    else if (acdisk == 1 and isop1 == 1){
-        QString name = QInputDialog::getText(this, tr("Make dir"),
-                                             tr("New directory name:"), QLineEdit::Normal,"");
-        if (name == ""){
-            return;
-        }
-        ccos_inode_t* root = ccos_get_root_dir(dat1, siz1);
-        uint16_t fils = 0;
-        ccos_inode_t** dirdata = NULL;
-        ccos_create_dir(curdir1, name.toStdString().c_str(), dat1, siz1);
-        char* fname = short_string_to_string(ccos_get_file_name(root));
-        ccos_get_dir_contents(curdir1, dat1, &fils, &dirdata);
-        isch0 = 1;
-        doListTable(dirdata, fils, nrot1, dat1, siz1, 0, fname, ui);
+        ccos_get_dir_contents(root, dat[acdisk], &fils, &dirdata);
+        isch[acdisk] = 1;
+        doListTable(dirdata, fils, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, fname, ui);
     }
 }
 
 void MainWindow::Openf(){
     QString name = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img *.IMG)");
-    uint8_t* dat = NULL;
-    size_t siz = 0;
-    read_file(name.toStdString().c_str(), &dat, &siz);
+    read_file(name.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
     if (name == ""){
         return;
     }
-    if(ccos_get_root_dir(dat, siz) == NULL){
+    if(ccos_get_root_dir(dat[acdisk], siz[acdisk]) == NULL){
         QMessageBox msgBox;
         msgBox.critical(0,"Incorrect Image File",
                         "<html><head/><body>"
@@ -453,84 +439,40 @@ void MainWindow::Openf(){
                         "</body></html>");
         return;
     }
-    int panel = 0;
-    if (isop0 == 1 and isop1 == 1){
-        panel = acdisk;
-        if(acdisk == 0){
-            isch0 = 0;
-            name0 = name;
-            dat0 = dat;
-            siz0 = siz;
-            inodeon0.clear();
-
-        }
-        else{
-            isch1 = 0;
-            name1 = name;
-            dat1 = dat;
-            siz1 = siz;
-            inodeon1.clear();
-        }
-    }
-    else if (isop0 == 1){
-        inodeon1.clear();
-        dat1 = dat;
-        siz1 = siz;
-        panel = 1;
-        isop1 = 1;
-        isch1 = 0;
-        name1 = name;
-    }
-    else if (isop0 == 0) {
-        inodeon0.clear();
-        dat0 = dat;
-        siz0 = siz;
-        isop0 = 1;
-        isch0 = 0;
-        name0 = name;
-    }
-    ccos_inode_t* root = ccos_get_root_dir(dat, siz);
+    inodeon[acdisk].clear();
+    isch[acdisk] = 0;
+    isop[acdisk] = 1;
+    ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
     uint16_t fils = 0;
     ccos_inode_t** dirdata = NULL;
-    ccos_get_dir_contents(root, dat, &fils, &dirdata);
+    ccos_get_dir_contents(root, dat[acdisk], &fils, &dirdata);
     char* fname = short_string_to_string(ccos_get_file_name(root));
-    if (panel == 0){
-        curdir0 = root;
-    }
-    else{
-        curdir1 = root;
-    }
-    doListTable(dirdata, fils, 0, dat, siz, panel, fname, ui);
+    curdir[acdisk] = root;
+    doListTable(dirdata, fils, 0, dat[acdisk], siz[acdisk], acdisk, fname, ui);
 }
 
 void MainWindow::Closef(){
     QTableWidget* tableWidget;
+    inodeon[acdisk].clear();
+    isch[acdisk] = 0;
+    isop[acdisk] = 0;
+    name[acdisk] = "";
+    dat[acdisk] = NULL;
+    siz[acdisk] = 0;
     if (acdisk == 0){
         tableWidget = ui->tableWidget;
-        inodeon0.clear();
-        isop0 = 0;
-        isch0 = 0;
-        name0 = "";
-        dat0 = NULL;
-        siz0 = 0;
         ui->label->setText("Free space:");
         ui->groupBox->setTitle("Disk I - No disk");
     }
     else{
         tableWidget = ui->tableWidget_2;
-        inodeon1.clear();
-        isop1 = 0;
-        isch1 = 0;
-        name1 = "";
-        dat1 = NULL;
-        siz1 = 0;
         ui->label_2->setText("Free space:");
         ui->groupBox_2->setTitle("Disk II - No disk");
     }
     for(int row= tableWidget->rowCount(); 0<=row; row--){
         tableWidget-> removeRow(row);
     }
-
+    drawempty(0, ui->tableWidget);
 }
 
 void MainWindow::setactive0()

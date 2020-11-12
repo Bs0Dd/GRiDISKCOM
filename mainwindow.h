@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include "about.h"
+#include "rename.h"
 #include "sys/stat.h"
 
 #if defined(WIN32)
@@ -26,21 +27,15 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+    int isop[2], nrot[2];
+    uint8_t* dat[2];
+    size_t siz[2];
     int acdisk = 0;
-    int isop0 = 0;
-    int isop1 = 0;
-    int nrot0 = 0;
-    int nrot1 = 0;
-    uint8_t* dat0 = NULL;
-    size_t siz0 = 0;
-    uint8_t* dat1 = NULL;
-    size_t siz1 = 0;
     QFont diskfont;
     void setactive0();
     void setactive1();
     void Openf();
-    void enterDIR0();
-    void enterDIR1();
+    void enterDIR();
     void Closef();
     void aboutShow();
     void Delete();
@@ -52,11 +47,13 @@ public:
     void MkDir();
     void Copy();
     void Ren();
+    void Label();
     void aboutQtShow();
     void closeEvent(QCloseEvent *event);
-    QString name0, name1;
+    QString name[2];
 private:
     Ui::MainWindow *ui;
     about *abss;
+    Rename *rnam;
 };
 #endif // MAINWINDOW_H

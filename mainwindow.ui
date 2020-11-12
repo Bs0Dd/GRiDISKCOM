@@ -469,7 +469,9 @@
     <addaction name="actionAdd"/>
     <addaction name="actionCopy"/>
     <addaction name="actionRename"/>
+    <addaction name="actionChange_label"/>
     <addaction name="actionDelete"/>
+    <addaction name="actionMake_dir"/>
     <addaction name="actionExtract"/>
     <addaction name="actionExtract_all"/>
    </widget>
@@ -637,6 +639,22 @@
   <action name="actionAbout_Qt">
    <property name="text">
     <string>About Qt</string>
+   </property>
+  </action>
+  <action name="actionChange_label">
+   <property name="text">
+    <string>Change label</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+H</string>
+   </property>
+  </action>
+  <action name="actionMake_dir">
+   <property name="text">
+    <string>Make dir</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+M</string>
    </property>
   </action>
  </widget>
