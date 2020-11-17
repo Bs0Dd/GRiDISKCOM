@@ -1,7 +1,8 @@
-#include "mainwindow.h"
+﻿#include "mainwindow.h"
 #include "./ui_mainwindow.h"
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QCloseEvent>
 #include <QInputDialog>
 #include <vector>
 
@@ -19,7 +20,7 @@ using namespace std;
 
 vector<ccos_inode_t*> inodeon[2];
 ccos_inode_t* curdir[2];
-int isch[2];
+bool isch[2];
 
 QString ccos_get_file_version_qstr(ccos_inode_t* file) {
   uint8_t major = file->version_major;
@@ -47,7 +48,7 @@ QString ccos_date_to_qstr(ccos_date_t date) {
   return qdat;
 }
 
-void drawempty(int mod, QTableWidget* tableWidget){
+void drawempty(bool mod, QTableWidget* tableWidget){
     QTableWidgetItem *tFname, *tType, *tSize, *tVer, *tCreate, *tMod;
     tFname = new QTableWidgetItem();
     tType = new QTableWidgetItem();
@@ -76,12 +77,15 @@ void drawempty(int mod, QTableWidget* tableWidget){
     tableWidget->setItem(0, 5, tMod);
 }
 
-void doListTable(ccos_inode_t** dirdata, int fils, int noRoot, uint8_t* dat, size_t siz, int curdisk, char* labd, Ui::MainWindow* ui){
+void doListTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, bool curdisk, Ui::MainWindow* ui){
     QTableWidget* tableWidget;
     QLabel* label;
     QGroupBox* box;
     QString disk, msg;
     inodeon[curdisk].clear();
+    uint16_t fils = 0;
+    ccos_inode_t** dirdata = NULL;
+    ccos_get_dir_contents(directory, dat, &fils, &dirdata);
     if (curdisk == 0){
         tableWidget = ui->tableWidget;
         label = ui->label;
@@ -97,6 +101,7 @@ void doListTable(ccos_inode_t** dirdata, int fils, int noRoot, uint8_t* dat, siz
     for(int row= tableWidget->rowCount(); 0<=row; row--){
         tableWidget-> removeRow(row);
     }
+    char* labd = ccos_get_image_label(dat, siz);
     if (strlen(labd) == 0){
         if (isch[curdisk] == 0){
         msg = "Disk %1 - No label";}
@@ -106,9 +111,9 @@ void doListTable(ccos_inode_t** dirdata, int fils, int noRoot, uint8_t* dat, siz
     }
     else{
         if (isch[curdisk] == 0){
-        msg = "Disk %1 -%2";}
+        msg = "Disk %1 - %2";}
         else{
-        msg = "Disk %1 -%2*";}
+        msg = "Disk %1 - %2*";}
         box->setTitle(msg.arg(disk).arg(labd));
     }
 char basename[CCOS_MAX_FILE_NAME];
@@ -154,11 +159,8 @@ for(int c = 0; c < fils; c++){
     tFname->setFlags(tFname->flags() ^ Qt::ItemIsEditable);
     tType->setText(type);
     QString qtype = type;
-    if (qtype == "subject"){
-        tType->setText("subject <DIR>");;
-    }
-    if (qtype == "Subject"){
-        tType->setText("Subject <DIR>");;
+    if (qtype.toLower() == "subject"){
+        tType->setText(qtype + " <DIR>");
     }
     tType->setFlags(tType->flags() ^ Qt::ItemIsEditable);
     tSize->setText(QString::number(ccos_get_file_size(dirdata[c])));
@@ -238,14 +240,16 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->tableWidget_2->verticalHeader()->hide();
     ui->tableWidget_2->setSelectionBehavior(QAbstractItemView::SelectRows);
-    connect(ui->actionExit, &QAction::triggered, qApp, &QApplication::quit);
+    connect(ui->actionExit, &QAction::triggered, this, &MainWindow::close);
     connect(ui->tableWidget, &QTableWidget::clicked, this, &MainWindow::setactive0);
     connect(ui->tableWidget_2, &QTableWidget::clicked, this, &MainWindow::setactive1);
     connect(ui->pushButton, &QPushButton::clicked, this, &MainWindow::Openf);
     connect(ui->pushButton_3, &QPushButton::clicked, this, &MainWindow::Save);
     connect(ui->pushButton_9, &QPushButton::clicked, this, &MainWindow::MkDir);
     connect(ui->pushButton_2, &QPushButton::clicked, this, &MainWindow::Closef);
+    connect(ui->pushButton_6, &QPushButton::clicked, this, &MainWindow::Ren);
     connect(ui->pushButton_7, &QPushButton::clicked, this, &MainWindow::Delete);
+    connect(ui->pushButton_8, &QPushButton::clicked, this, &MainWindow::Ext);
     connect(ui->pushButton_10, &QPushButton::clicked, this, &MainWindow::Extall);
     connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::aboutShow);
     connect(ui->actionAbout_Qt, &QAction::triggered, this, &MainWindow::aboutQtShow);
@@ -257,6 +261,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionClose, &QAction::triggered, this, &MainWindow::Closef);
     connect(ui->actionRename, &QAction::triggered, this, &MainWindow::Ren);
     connect(ui->actionDelete, &QAction::triggered, this, &MainWindow::Delete);
+    connect(ui->actionExtract, &QAction::triggered, this, &MainWindow::Ext);
     connect(ui->actionExtract_all, &QAction::triggered, this, &MainWindow::Extall);
     connect(ui->tableWidget, &QTableWidget::cellActivated, this, &MainWindow::enterDIR);
     connect(ui->tableWidget_2, &QTableWidget::cellActivated, this, &MainWindow::enterDIR);
@@ -277,7 +282,36 @@ void MainWindow::aboutQtShow(){
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    QMainWindow::closeEvent(event);
+    QMessageBox msgBox;
+    msgBox.setIcon(QMessageBox::Question);
+    msgBox.setInformativeText("Do you want to save your changes?");
+    msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+    msgBox.setDefaultButton(QMessageBox::Save);
+    bool backdstat = acdisk;
+    if (isch[0] == 1){
+        msgBox.setText("The Disk I has been modified.");
+        int ret = msgBox.exec();
+        if (ret == QMessageBox::Save){
+            acdisk = 0;
+            MainWindow::Save();
+            acdisk = backdstat;
+        }
+        else if (ret == QMessageBox::Cancel){
+            event->ignore();
+        }
+    }
+    if (isch[1] == 1){
+        msgBox.setText("The Disk II has been modified.");
+        int ret = msgBox.exec();
+        if (ret == QMessageBox::Save){
+            acdisk = 1;
+            MainWindow::Save();
+            acdisk = backdstat;
+        }
+        else if (ret == QMessageBox::Cancel){
+            event->ignore();
+        }
+    }
 }
 
 void MainWindow::enterDIR(){
@@ -297,30 +331,21 @@ void MainWindow::enterDIR(){
     }
     if (called -> row() == 0 and nrot[acdisk]== 1){
         ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
-        char* fname = short_string_to_string(ccos_get_file_name(root));
-        uint16_t fils = 0;
-        ccos_inode_t** dirdata = NULL;
         curdir[acdisk] = (ccos_get_parent_dir(curdir[acdisk], dat[acdisk]));
-        ccos_get_dir_contents(curdir[acdisk], dat[acdisk], &fils, &dirdata);
         if (curdir[acdisk] == root){
             nrot[acdisk] = 0;
         }
-        doListTable(dirdata, fils, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, fname, ui);
+        doListTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
     else if (ccos_is_dir(dir)){
     curdir[acdisk] = dir;
-    ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
-    char* fname = short_string_to_string(ccos_get_file_name(root));
-    uint16_t fils = 0;
-    ccos_inode_t** dirdata = NULL;
-    ccos_get_dir_contents(dir, dat[acdisk], &fils, &dirdata);
     nrot[acdisk] = 1;
-    doListTable(dirdata, fils, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, fname, ui);
+    doListTable(dir, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     } 
 }
 }
 
-void MainWindow::Delete(){
+void MainWindow::Ext(){
     QTableWidget* tw;
     if (isop[acdisk] == 1){
         if (acdisk ==0){
@@ -330,39 +355,150 @@ void MainWindow::Delete(){
             tw= ui->tableWidget_2;
         }
         QList<QTableWidgetItem *> called = tw->selectedItems();
+        if (called.size() == 0){
+            return;
+        }
+        if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0x0000000){
+            return;
+        }
+        QString todir = QFileDialog::getExistingDirectory(this, tr("Extract to"), "",
+                                                          QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        if (todir == ""){
+            return;
+        }
+        for (int t = 0; t< called.size(); t+=6){
+            if (inodeon[acdisk][called[t]->row()]==0x0000000){
+                continue;
+            }
+            if (ccos_is_dir(inodeon[acdisk][called[t]->row()])){
+                dump_dir_to(name[acdisk].toStdString().c_str(), inodeon[acdisk][called[t]->row()],
+                        dat[acdisk], todir.toStdString().c_str());
+            }
+            else{
+                dump_file(todir.toStdString().c_str(), inodeon[acdisk][called[t]->row()], dat[acdisk]);
+            }
+        }
+    }
+}
+
+void MainWindow::Delete(){
+    QTableWidget* tw;
+    if (isop[acdisk] == 1){
+        QMessageBox msgBox;
+        if (acdisk ==0){
+            tw= ui->tableWidget;
+        }
+        else{
+            tw= ui->tableWidget_2;
+        }
+        QList<QTableWidgetItem *> called = tw->selectedItems();
+        if (called.size() == 0){
+            return;
+        }
+        if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0x0000000){
+            return;
+        }
+        bool selpar = 0;
+        for (int t = 0; t< called.size(); t+=6){
+            if (inodeon[acdisk][called[t]->row()]==0x0000000){
+                selpar = 1;
+                break;
+            }
+        }
+        msgBox.setIcon(QMessageBox::Question);
+        msgBox.setText(QString("Do you want to delete %1 file(s)?").arg((called.size()- selpar)/6));
+        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        msgBox.setDefaultButton(QMessageBox::No);
+        int ret = msgBox.exec();
+        if (ret != QMessageBox::Yes){
+            return;
+        }
         for (int t = 0; t< called.size(); t+=6){
             if (inodeon[acdisk][called[t]->row()]==0x0000000){
                 continue;
             }
             ccos_delete_file(dat[acdisk], siz[acdisk], inodeon[acdisk][called[t]->row()]);
         }
-        ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
-        char* fname = short_string_to_string(ccos_get_file_name(root));
-        uint16_t fils = 0;
-        ccos_inode_t** dirdata = NULL;
         isch[acdisk] = 1;
-        ccos_get_dir_contents(curdir[acdisk], dat[acdisk], &fils, &dirdata);
-        doListTable(dirdata, fils, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, fname, ui);
+        doListTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
 }
 
 void MainWindow::Label(){
     if (isop[acdisk] == 1){
-        QString name = QInputDialog::getText(this, tr("New label"),
-                                         tr("Set new label for the disk:"), QLineEdit::Normal,"");
+        QString dsk;
+        if (acdisk == 0){
+            dsk= "I";
+        }
+        else{
+            dsk= "II";
+        }
+        char* fname = ccos_get_image_label(dat[acdisk], siz[acdisk]);
+        QString nameQ = QInputDialog::getText(this, tr("New label"),
+                                         QString("Set new label for the disk %1:").arg(dsk), QLineEdit::Normal, fname);
+        ccos_set_image_label(dat[acdisk], siz[acdisk], nameQ.toStdString().c_str());
+        isch[acdisk]= 1;
+        doListTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
-
 }
 
 void  MainWindow::Ren(){
-    rnam = new Rename(this);
-    rnam->exec();
+    if (isop[acdisk] == 1){
+        ccos_inode_t* reninode;
+        if (acdisk == 0){
+            if (ui->tableWidget->currentRow() == -1){
+                return;
+            }
+            reninode = inodeon[acdisk][ui->tableWidget->currentRow()];
+        }
+        else{
+            if (ui->tableWidget_2->currentRow() == -1){
+                return;
+            }
+            reninode = inodeon[acdisk][ui->tableWidget_2->currentRow()];
+        }
+        if (reninode == 0x0000000){
+            return;
+        }
+        char basename[CCOS_MAX_FILE_NAME];
+        char type[CCOS_MAX_FILE_NAME];
+        memset(basename, 0, CCOS_MAX_FILE_NAME);
+        memset(type, 0, CCOS_MAX_FILE_NAME);
+        ccos_parse_file_name(reninode, basename, type, NULL, NULL);
+        rnam = new Rename(this);
+        rnam->setName(basename);
+        rnam->setType(type);
+        rnam->setINFsect((QString("Set new name and type for %1~%2~:").arg(basename).arg(type)));
+        if (ccos_is_dir(reninode)){
+            rnam->lockType(1);
+        }
+        bool ret = rnam->exec();
+        if (ret == 1){
+            if (rnam->getType().toLower() == "subject" and !ccos_is_dir(reninode)){
+                QMessageBox msgBox;
+                msgBox.critical(0,"Incorrect Type",
+                                "Can't set directory type for file!");
+                return;
+            }
+            QString newname = rnam->getName();
+            QString newtype = rnam->getType();
+            ccos_rename_file(reninode, newname.toStdString().c_str(), newtype.toStdString().c_str());
+            isch[acdisk] = 1;
+            doListTable(ccos_get_parent_dir(reninode, dat[acdisk]),
+                                            nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+        }
+    }
 }
 
 void MainWindow::Extall(){
-    QString todir = QFileDialog::getExistingDirectory(this, tr("Extract all to"), "",
+    if (isop[acdisk] == 1){
+        QString todir = QFileDialog::getExistingDirectory(this, tr("Extract all to"), "",
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-    dump_image_to(name[acdisk].toStdString().c_str(), dat[acdisk], siz[acdisk], todir.toStdString().c_str());
+        if (todir == ""){
+            return;
+        }
+        dump_image_to(name[acdisk].toStdString().c_str(), dat[acdisk], siz[acdisk], todir.toStdString().c_str());
+    }
 }
 
 void MainWindow::Save(){
@@ -395,8 +531,10 @@ void MainWindow::SaveAs(){
         }
         save_image(nameQ.toStdString().c_str(), dat[acdisk], siz[acdisk], true);
         name[acdisk] = nameQ;
-        isch[acdisk] = 0;
-        gb->setTitle(gb->title().left(gb->title().size()-1));
+        if (isch[acdisk] == 1){
+            gb->setTitle(gb->title().left(gb->title().size()-1));
+            isch[acdisk] = 0;
+        }
     }
 }
 
@@ -414,20 +552,16 @@ void MainWindow::MkDir(){
             return;
         }
         ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
-        uint16_t fils = 0;
-        ccos_inode_t** dirdata = NULL;
         ccos_create_dir(root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]);
-        char* fname = short_string_to_string(ccos_get_file_name(root));
-        ccos_get_dir_contents(root, dat[acdisk], &fils, &dirdata);
         isch[acdisk] = 1;
-        doListTable(dirdata, fils, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, fname, ui);
+        doListTable(root, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
 }
 
 void MainWindow::Openf(){
-    QString name = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img *.IMG)");
-    read_file(name.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
-    if (name == ""){
+    QString Qname = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img *.IMG)");
+    read_file(Qname.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
+    if (Qname == ""){
         return;
     }
     if(ccos_get_root_dir(dat[acdisk], siz[acdisk]) == NULL){
@@ -442,16 +576,34 @@ void MainWindow::Openf(){
     inodeon[acdisk].clear();
     isch[acdisk] = 0;
     isop[acdisk] = 1;
+    name[acdisk] = Qname;
     ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
-    uint16_t fils = 0;
-    ccos_inode_t** dirdata = NULL;
-    ccos_get_dir_contents(root, dat[acdisk], &fils, &dirdata);
-    char* fname = short_string_to_string(ccos_get_file_name(root));
     curdir[acdisk] = root;
-    doListTable(dirdata, fils, 0, dat[acdisk], siz[acdisk], acdisk, fname, ui);
+    doListTable(root, 0, dat[acdisk], siz[acdisk], acdisk, ui);
 }
 
 void MainWindow::Closef(){
+    if (isch[acdisk] == 1){
+        QMessageBox msgBox;
+        msgBox.setIcon(QMessageBox::Question);
+        msgBox.setInformativeText("Do you want to save your changes?");
+        msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+        msgBox.setDefaultButton(QMessageBox::Save);
+        if (acdisk == 0){
+            msgBox.setText("The Disk I has been modified.");
+        }
+        else{
+            msgBox.setText("The Disk II has been modified.");
+        }
+        int ret = msgBox.exec();
+        if (ret == QMessageBox::Save){
+            MainWindow::Save();
+        }
+        else if (ret == QMessageBox::Cancel){
+            return;
+        }
+    }
+
     QTableWidget* tableWidget;
     inodeon[acdisk].clear();
     isch[acdisk] = 0;
@@ -472,29 +624,33 @@ void MainWindow::Closef(){
     for(int row= tableWidget->rowCount(); 0<=row; row--){
         tableWidget-> removeRow(row);
     }
-    drawempty(0, ui->tableWidget);
+    drawempty(0, tableWidget);
 }
 
 void MainWindow::setactive0()
 {
-    diskfont.setBold(false);
-    ui->groupBox_2->setFont(diskfont);
-    ui->tableWidget_2->setFont(diskfont);
-    diskfont.setBold(true);
-    ui->groupBox->setFont(diskfont);
-    ui->tableWidget->setFont(diskfont);
-    acdisk = 0;
+    if (acdisk == 1){
+        diskfont.setBold(false);
+        ui->groupBox_2->setFont(diskfont);
+        ui->tableWidget_2->setFont(diskfont);
+        diskfont.setBold(true);
+        ui->groupBox->setFont(diskfont);
+        ui->tableWidget->setFont(diskfont);
+        acdisk = 0;
+    }
 }
 
 void MainWindow::setactive1()
 {
-    diskfont.setBold(false);
-    ui->groupBox->setFont(diskfont);
-    ui->tableWidget->setFont(diskfont);
-    diskfont.setBold(true);
-    ui->groupBox_2->setFont(diskfont);
-    ui->tableWidget_2->setFont(diskfont);
-    acdisk = 1;
+    if (acdisk == 0){
+        diskfont.setBold(false);
+        ui->groupBox->setFont(diskfont);
+        ui->tableWidget->setFont(diskfont);
+        diskfont.setBold(true);
+        ui->groupBox_2->setFont(diskfont);
+        ui->tableWidget_2->setFont(diskfont);
+        acdisk = 1;
+    }
 }
 
 

@@ -50,6 +50,9 @@
    <property name="text">
     <string>%no_text#$contact_to_aperture@@*%</string>
    </property>
+   <property name="wordWrap">
+    <bool>true</bool>
+   </property>
   </widget>
   <widget class="QLineEdit" name="lineEdit">
    <property name="geometry">
@@ -69,6 +72,9 @@
      <width>341</width>
      <height>25</height>
     </rect>
+   </property>
+   <property name="text">
+    <string/>
    </property>
   </widget>
   <widget class="QLabel" name="label_2">

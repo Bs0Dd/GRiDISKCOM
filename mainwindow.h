@@ -27,10 +27,10 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    int isop[2], nrot[2];
+    bool isop[2], nrot[2];
     uint8_t* dat[2];
     size_t siz[2];
-    int acdisk = 0;
+    bool acdisk = 0;
     QFont diskfont;
     void setactive0();
     void setactive1();

@@ -297,6 +297,7 @@ static traverse_callback_result_t dump_dir_tree_on_dir(ccos_inode_t* dir, UNUSED
   snprintf(subdir, PATH_MAX, "%s/%s", dirname, subdir_name);
 
   int res = MKDIR(subdir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+  free(subdir);
 
   if (res == -1) {
       if (stat(subdir, &statbuf) != -1) {
@@ -328,9 +329,40 @@ int dump_image(const char* path, uint8_t* data, size_t data_size) {
   return dump_dir(path, root_dir, data);
 }
 
+int dump_file(const char* path_to_dir, ccos_inode_t* file, uint8_t* image_data){
+    char dir_name[CCOS_MAX_FILE_NAME];
+    memset(dir_name, 0, CCOS_MAX_FILE_NAME);
+    char dir_type[CCOS_MAX_FILE_NAME];
+    memset(dir_type, 0, CCOS_MAX_FILE_NAME);
+    ccos_parse_file_name(file, dir_name, dir_type, NULL, NULL);
+
+    traverse_callback_result_t res = dump_dir_tree_on_file(file, image_data, path_to_dir, 0, NULL);
+
+    if (res == RESULT_ERROR){
+        fprintf(stderr, "Unable to dump file \"%s~%s\": %s!\n",
+                dir_name, dir_type, strerror(errno));
+        return -1;
+    }
+
+    return 0;
+}
+
 int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data) {
   char* floppy_name = short_string_to_string(ccos_get_file_name(dir));
-  const char* name_trimmed = trim_string(floppy_name, ' ');
+  char* name_trimmed =(char*)calloc(sizeof(char), CCOS_MAX_FILE_NAME);
+
+  if (dir == ccos_get_parent_dir(dir, data)){
+      if (strcmp(floppy_name, "")){
+          int sz = strlen(floppy_name);
+          memmove(floppy_name, floppy_name + 1, sz - 1);
+          floppy_name[sz - 1] = 0;
+      }
+      name_trimmed = floppy_name;
+  }
+  else{
+    char* delim = strchr(ccos_get_file_name(dir)->data, '~');
+    strncpy(name_trimmed, ccos_get_file_name(dir)->data, (delim - ccos_get_file_name(dir)->data));
+  }
 
   const char* basename = get_basename(path);
 
@@ -338,6 +370,7 @@ int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data) {
   if (dirname == NULL) {
     fprintf(stderr, "Unable to allocate memory for directory name!\n");
     free(floppy_name);
+    free(name_trimmed);
     return -1;
   }
 
@@ -358,6 +391,7 @@ int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data) {
   }
 
   free(floppy_name);
+  free(name_trimmed);
 
   // some directories have '/' in their names, e.g. "GRiD-OS/Windows 113x, 114x v3.1.5D"
   replace_char_in_place(dirname, '/', '_');
@@ -398,7 +432,19 @@ int dump_image_to(const char* path, uint8_t* data, size_t data_size, const char*
 
 int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* destpath) {
   char* floppy_name = short_string_to_string(ccos_get_file_name(dir));
-  const char* name_trimmed = trim_string(floppy_name, ' ');
+  char* name_trimmed =(char*)calloc(sizeof(char), CCOS_MAX_FILE_NAME);
+  if (dir == ccos_get_parent_dir(dir, data)){
+      if (strcmp(floppy_name, "")){
+          int sz = strlen(floppy_name);
+          memmove(floppy_name, floppy_name + 1, sz - 1);
+          floppy_name[sz - 1] = 0;
+      }
+      name_trimmed = floppy_name;
+  }
+  else{
+    char* delim = strchr(ccos_get_file_name(dir)->data, '~');
+    strncpy(name_trimmed, ccos_get_file_name(dir)->data, (delim - ccos_get_file_name(dir)->data));
+  }
 
   const char* basename = get_basename(path);
 
@@ -406,6 +452,7 @@ int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* 
   if (dirname == NULL) {
     fprintf(stderr, "Unable to allocate memory for directory name!\n");
     free(floppy_name);
+    free(name_trimmed);
     return -1;
   }
 
@@ -426,6 +473,7 @@ int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* 
   }
 
   free(floppy_name);
+  free(name_trimmed);
 
   // some directories have '/' in their names, e.g. "GRiD-OS/Windows 113x, 114x v3.1.5D"
   replace_char_in_place(dirname, '/', '_');
@@ -433,7 +481,6 @@ int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* 
   char* dest = (char*)calloc(sizeof(char), PATH_MAX);
   if (dirname == NULL) {
     fprintf(stderr, "Unable to allocate memory for directory name!\n");
-    free(floppy_name);
     return -1;
   }
   strcpy(dest, destpath);
@@ -442,21 +489,9 @@ int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* 
   free(dirname);
 
   if (MKDIR(dest, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
-      if (stat(dest, &statbuf) != -1) {
-         if (S_ISDIR(statbuf.st_mode)) {
-             TRACE("Directory \"%s\" already exists! Dumping...", dest);
-         }
-         else {
-             fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dest, strerror(errno));
-             free(dest);
-             return -1;
-         }
-      }
-      else {
-          fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dest, strerror(errno));
-          free(dest);
-          return -1;
-      }
+    fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dest, strerror(errno));
+    free(dest);
+    return -1;
   }
 
   int res = traverse_ccos_image(dir, data, dest, 0, dump_dir_tree_on_file, dump_dir_tree_on_dir, NULL);
@@ -763,4 +798,43 @@ int create_directory(char* path, char* directory_name, uint8_t* image_data, size
   }
 
   return save_image(path, image_data, image_size, in_place);
+}
+
+int rename_file(char* path, char* file_name, char* new_name, uint8_t* image_data, size_t image_size, int in_place) {
+  if (path == NULL) {
+    fprintf(stderr, "No target image is provided to copy file to!\n");
+    return -1;
+  }
+
+  if (file_name == NULL) {
+    fprintf(stderr, "No file provided to rename!\n");
+    return -1;
+  }
+
+  if (new_name == NULL) {
+    fprintf(stderr, "No new file name provided to rename file to!\n");
+    return -1;
+  }
+
+  ccos_inode_t* root_dir = ccos_get_root_dir(image_data, image_size);
+  if (root_dir == NULL) {
+    fprintf(stderr, "Unable to rename file: Unable to get root directory!\n");
+    return -1;
+  }
+
+  ccos_inode_t* file = NULL;
+  if (find_filename(root_dir, image_data, file_name, &file, 1) != 0) {
+    fprintf(stderr, "Unable to find file %s in the image!\n", file_name);
+    return -1;
+  }
+
+  if (ccos_rename_file(file, new_name, NULL) == -1) {
+    char* old_file_name = short_string_to_string(ccos_get_file_name(file));
+    fprintf(stderr, "Unable to rename file %s to %s!\n", old_file_name, new_name);
+    free(old_file_name);
+    return -1;
+  }
+
+  int res = save_image(path, image_data, image_size, in_place);
+  return res;
 }
