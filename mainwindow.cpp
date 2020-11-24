@@ -19,8 +19,8 @@ extern "C"{
 using namespace std;
 
 vector<ccos_inode_t*> inodeon[2];
-ccos_inode_t* curdir[2];
-bool isch[2];
+ccos_inode_t* curdir[2] = {NULL};
+bool isch[2] = {0};
 
 QString ccos_get_file_version_qstr(ccos_inode_t* file) {
   uint8_t major = file->version_major;
@@ -75,6 +75,28 @@ void drawempty(bool mod, QTableWidget* tableWidget){
     tableWidget->setItem(0, 3, tVer);
     tableWidget->setItem(0, 4, tCreate);
     tableWidget->setItem(0, 5, tMod);
+}
+
+int tilda_check(string parse_str){
+    string delimiter = "~";
+    vector<string> output;
+
+    size_t pos = 0;
+    string token;
+    while ((pos = parse_str.find(delimiter)) != string::npos) {
+        token = parse_str.substr(0, pos);
+        output.push_back(token);
+        parse_str.erase(0, pos + delimiter.length());
+    }
+    if (output.size() == 1){
+        output.push_back(parse_str);
+    }
+
+    if (output.size() == 0 or output.size() > 2){
+        return -1;
+    }
+
+    return 0;
 }
 
 void doListTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, bool curdisk, Ui::MainWindow* ui){
@@ -240,35 +262,33 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->tableWidget_2->verticalHeader()->hide();
     ui->tableWidget_2->setSelectionBehavior(QAbstractItemView::SelectRows);
-    connect(ui->actionExit, &QAction::triggered, this, &MainWindow::close);
-    connect(ui->tableWidget, &QTableWidget::clicked, this, &MainWindow::setactive0);
-    connect(ui->tableWidget_2, &QTableWidget::clicked, this, &MainWindow::setactive1);
-    connect(ui->pushButton, &QPushButton::clicked, this, &MainWindow::Openf);
-    connect(ui->pushButton_3, &QPushButton::clicked, this, &MainWindow::Save);
-    connect(ui->pushButton_9, &QPushButton::clicked, this, &MainWindow::MkDir);
-    connect(ui->pushButton_2, &QPushButton::clicked, this, &MainWindow::Closef);
-    connect(ui->pushButton_6, &QPushButton::clicked, this, &MainWindow::Ren);
-    connect(ui->pushButton_7, &QPushButton::clicked, this, &MainWindow::Delete);
-    connect(ui->pushButton_8, &QPushButton::clicked, this, &MainWindow::Ext);
-    connect(ui->pushButton_10, &QPushButton::clicked, this, &MainWindow::Extall);
-    connect(ui->actionAbout, &QAction::triggered, this, &MainWindow::aboutShow);
-    connect(ui->actionAbout_Qt, &QAction::triggered, this, &MainWindow::aboutQtShow);
-    connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::Openf);
-    connect(ui->actionSave, &QAction::triggered, this, &MainWindow::Save);
-    connect(ui->actionSave_as, &QAction::triggered, this, &MainWindow::SaveAs);
-    connect(ui->actionMake_dir, &QAction::triggered, this, &MainWindow::MkDir);
-    connect(ui->actionChange_label, &QAction::triggered, this, &MainWindow::Label);
-    connect(ui->actionClose, &QAction::triggered, this, &MainWindow::Closef);
-    connect(ui->actionRename, &QAction::triggered, this, &MainWindow::Ren);
-    connect(ui->actionDelete, &QAction::triggered, this, &MainWindow::Delete);
-    connect(ui->actionExtract, &QAction::triggered, this, &MainWindow::Ext);
-    connect(ui->actionExtract_all, &QAction::triggered, this, &MainWindow::Extall);
-    connect(ui->tableWidget, &QTableWidget::cellActivated, this, &MainWindow::enterDIR);
-    connect(ui->tableWidget_2, &QTableWidget::cellActivated, this, &MainWindow::enterDIR);
-    dat[0]= NULL;
-    dat[1]= NULL;
-    siz[0]= 0;
-    siz[1]= 0;
+    connect(ui->actionExit, SIGNAL(triggered()), this, SLOT(close()));
+    connect(ui->tableWidget, SIGNAL(cellClicked(int, int)), this, SLOT(setactive0()));
+    connect(ui->tableWidget_2, SIGNAL(cellClicked(int, int)), this, SLOT(setactive1()));
+    connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(Openf()));
+    connect(ui->pushButton_3, SIGNAL(clicked()), this, SLOT(Save()));
+    connect(ui->pushButton_4, SIGNAL(clicked()), this, SLOT(Add()));
+    connect(ui->pushButton_9, SIGNAL(clicked()), this, SLOT(MkDir()));
+    connect(ui->pushButton_2, SIGNAL(clicked()), this, SLOT(Closef()));
+    connect(ui->pushButton_6, SIGNAL(clicked()), this, SLOT(Ren()));
+    connect(ui->pushButton_7, SIGNAL(clicked()), this, SLOT(Delete()));
+    connect(ui->pushButton_8, SIGNAL(clicked()), this, SLOT(Ext()));
+    connect(ui->pushButton_10, SIGNAL(clicked()), this, SLOT(Extall()));
+    connect(ui->actionAdd, SIGNAL(triggered()), this, SLOT(Add()));
+    connect(ui->actionAbout, SIGNAL(triggered()), this, SLOT(aboutShow()));
+    connect(ui->actionAbout_Qt, SIGNAL(triggered()), this, SLOT(aboutQtShow()));
+    connect(ui->actionOpen, SIGNAL(triggered()), this, SLOT(Openf()));
+    connect(ui->actionSave, SIGNAL(triggered()), this, SLOT(Save()));
+    connect(ui->actionSave_as, SIGNAL(triggered()), this, SLOT(SaveAs()));
+    connect(ui->actionMake_dir, SIGNAL(triggered()), this, SLOT(MkDir()));
+    connect(ui->actionChange_label, SIGNAL(triggered()), this, SLOT(Label()));
+    connect(ui->actionClose, SIGNAL(triggered()), this, SLOT(Closef()));
+    connect(ui->actionRename, SIGNAL(triggered()), this, SLOT(Ren()));
+    connect(ui->actionDelete, SIGNAL(triggered()), this, SLOT(Delete()));
+    connect(ui->actionExtract, SIGNAL(triggered()), this, SLOT(Ext()));
+    connect(ui->actionExtract_all, SIGNAL(triggered()), this, SLOT(Extall()));
+    connect(ui->tableWidget, SIGNAL(cellActivated(int, int)), this, SLOT(enterDIR()));
+    connect(ui->tableWidget_2, SIGNAL(cellActivated(int, int)), this, SLOT(enterDIR()));
 }
 
 void MainWindow::aboutShow(){
@@ -442,6 +462,63 @@ void MainWindow::Label(){
     }
 }
 
+void MainWindow::Add(){
+    QMessageBox msgBox;
+    if (isop[acdisk] == 1){
+        if (nrot[acdisk] == 0){
+            msgBox.information(this, tr("Add file(s)"),
+                               tr("Sorry, but GRiD supports files only in directories!"));
+            return;
+        }
+        QStringList files = QFileDialog::getOpenFileNames(
+                    this, "Select files to add");
+        for(int i = 0; i < files.size(); i++){
+            uint8_t* fdat = NULL;
+            size_t fsiz = 0;
+            string fname = files[i].toStdString();
+            const size_t last_slash_idx = fname.find_last_of("/");
+            if (std::string::npos != last_slash_idx)
+            {
+                fname.erase(0, last_slash_idx + 1);
+            }
+            if (tilda_check(fname) == -1){
+                rnam = new Rename(this);
+                rnam->setINFsect((QString("Set correct name and type for %1:").arg(fname.c_str())));
+                while (true){
+                    bool ret = rnam->exec();
+                    if (ret == 1){
+                        if (rnam->getType().toLower() == "subject"){
+                            msgBox.critical(0,"Incorrect Type",
+                                            "Can't set directory type for file!");
+                        }
+                        else if (rnam->getName() == "" or rnam->getType() == ""){
+                            msgBox.critical(0,"Incorrect Name or Type",
+                                            "File name or type can't be empty!");
+                        }
+                        else{
+                            QString crnam = "%1~%2~";
+                            fname = crnam.arg(rnam->getName()).arg(rnam->getType()).toStdString();
+                            break;
+                        }
+                    }
+                    else{
+                        return;
+                    }
+                }
+            }
+            if (read_file(files[i].toStdString().c_str(), &fdat, &fsiz) == -1 ||
+                    ccos_add_file(curdir[acdisk], fdat, fsiz, fname.c_str(), dat[acdisk], siz[acdisk]) == NULL){
+                msgBox.critical(0,"Error",
+                                QString("Can't add \"%1\" to the image! Skipping...").arg(fname.c_str()));
+            }
+        }
+        if (files.size() != 0){
+            isch[acdisk]= 1;
+            doListTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+        }
+    }
+}
+
 void  MainWindow::Ren(){
     if (isop[acdisk] == 1){
         ccos_inode_t* reninode;
@@ -479,6 +556,11 @@ void  MainWindow::Ren(){
                 msgBox.critical(0,"Incorrect Type",
                                 "Can't set directory type for file!");
                 return;
+            }
+            else if (rnam->getName() == "" or rnam->getType() == ""){
+                QMessageBox msgBox;
+                msgBox.critical(0,"Incorrect Name or Type",
+                                "File name or type can't be empty!");
             }
             QString newname = rnam->getName();
             QString newtype = rnam->getType();
@@ -542,8 +624,8 @@ void MainWindow::MkDir(){
     if (isop[acdisk] == 1){
         if (nrot[acdisk] == 1){
             QMessageBox msgBox;
-            msgBox.critical(0,"Make dir",
-                            "Sorry, but GRiD support directories only in root!");
+            msgBox.information(0,"Make dir",
+                            "Sorry, but GRiD supports directories only in root!");
             return;
         }
         QString name = QInputDialog::getText(this, tr("Make dir"),
@@ -559,7 +641,7 @@ void MainWindow::MkDir(){
 }
 
 void MainWindow::Openf(){
-    QString Qname = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img *.IMG)");
+    QString Qname = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img)");
     read_file(Qname.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
     if (Qname == ""){
         return;

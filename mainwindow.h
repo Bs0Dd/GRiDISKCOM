@@ -23,15 +23,7 @@ QT_END_NAMESPACE
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
-
-public:
-    MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
-    bool isop[2], nrot[2];
-    uint8_t* dat[2];
-    size_t siz[2];
-    bool acdisk = 0;
-    QFont diskfont;
+public slots:
     void setactive0();
     void setactive1();
     void Openf();
@@ -45,11 +37,19 @@ public:
     void SaveAs();
     void Add();
     void MkDir();
-    void Copy();
+    //void Copy();
     void Ren();
     void Label();
     void aboutQtShow();
     void closeEvent(QCloseEvent *event);
+public:
+    MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
+    bool isop[2] ={0}, nrot[2] ={0};
+    uint8_t* dat[2] ={NULL};
+    size_t siz[2] = {0};
+    bool acdisk = 0;
+    QFont diskfont;
     QString name[2];
 private:
     Ui::MainWindow *ui;
