@@ -5,6 +5,7 @@
 #include <QCloseEvent>
 #include <QInputDialog>
 #include <vector>
+#include <fstream>
 
 #include <iostream>
 
@@ -103,6 +104,37 @@ int tilda_check(string parse_str){
     }
 
     return 0;
+}
+
+//*Check if space is enough to add files
+int checkFreeSp(uint8_t* data, size_t data_size, vector<ccos_inode_t*> inodeList,
+                QList<QTableWidgetItem *> calledElems, size_t* needs){ //*For copy
+    size_t free = ccos_calc_free_space(data, data_size);
+    *needs = 0;
+    for (int i = 0; i < calledElems.size(); i+=6) {
+        *needs += ccos_get_file_size(inodeList[calledElems[i]->row()]);
+    }
+    if (*needs > free) {
+        return -1;
+    }
+    else {
+        return 0;
+    }
+}
+
+int checkFreeSp(uint8_t* data, size_t data_size, QStringList files, size_t* needs){ //*For add
+    size_t free = ccos_calc_free_space(data, data_size);
+    *needs = 0;
+    for (int i = 0; i < files.size(); i++) {
+        ifstream in(files[i].toStdString(), ifstream::ate | ifstream::binary);
+        *needs += in.tellg();
+    }
+    if (*needs > free) {
+        return -1;
+    }
+    else {
+        return 0;
+    }
 }
 
 //*Get directory listing and fill it to table
@@ -275,6 +307,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->pushButton_2, SIGNAL(clicked()), this, SLOT(Closef()));
     connect(ui->pushButton_3, SIGNAL(clicked()), this, SLOT(Save()));
     connect(ui->pushButton_4, SIGNAL(clicked()), this, SLOT(Add()));
+    connect(ui->pushButton_5, SIGNAL(clicked()), this, SLOT(Copy()));
     connect(ui->pushButton_6, SIGNAL(clicked()), this, SLOT(Ren()));
     connect(ui->pushButton_7, SIGNAL(clicked()), this, SLOT(Delete()));
     connect(ui->pushButton_8, SIGNAL(clicked()), this, SLOT(Ext()));
@@ -286,6 +319,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionAbout_Qt, SIGNAL(triggered()), this, SLOT(aboutQtShow()));
     connect(ui->actionChange_label, SIGNAL(triggered()), this, SLOT(Label()));
     connect(ui->actionClose, SIGNAL(triggered()), this, SLOT(Closef()));
+    connect(ui->actionCopy, SIGNAL(triggered()), this, SLOT(Copy()));
     connect(ui->actionDelete, SIGNAL(triggered()), this, SLOT(Delete()));
     connect(ui->actionExit, SIGNAL(triggered()), this, SLOT(close()));
     connect(ui->actionExtract, SIGNAL(triggered()), this, SLOT(Ext()));
@@ -322,12 +356,20 @@ void MainWindow::Add(){
         }
         QStringList files = QFileDialog::getOpenFileNames(
                     this, "Select files to add");
+        size_t needs= 0;
+        if (checkFreeSp(dat[acdisk], siz[acdisk], files, &needs) == -1) {
+            size_t free = ccos_calc_free_space(dat[acdisk], siz[acdisk]);
+            QMessageBox errBox;
+            errBox.critical(0,"Not enough space",
+                            QString("Sorry, but requires %1 bytes of additional disk space to add").arg(needs-free));
+            return;
+        }
         for(int i = 0; i < files.size(); i++){
             uint8_t* fdat = NULL;
             size_t fsiz = 0;
             string fname = files[i].toStdString();
             const size_t last_slash_idx = fname.find_last_of("/");
-            if (std::string::npos != last_slash_idx)
+            if (string::npos != last_slash_idx)
             {
                 fname.erase(0, last_slash_idx + 1);
             }
@@ -446,6 +488,100 @@ void MainWindow::Closef(){
         tableWidget-> removeRow(row);
     }
     drawempty(0, tableWidget);
+}
+
+void MainWindow::Copy(){
+    QTableWidget* tw;
+    if (isop[acdisk] == 1 and isop[!acdisk] == 1){
+        QMessageBox msgBox;
+        if (acdisk ==0){
+            tw= ui->tableWidget;
+        }
+        else{
+            tw= ui->tableWidget_2;
+        }
+        QList<QTableWidgetItem *> called = tw->selectedItems();
+        if (called.size() == 0){
+            return;
+        }
+        if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0x0000000){
+            return;
+        }
+        bool selpar = 0;
+        for (int t = 0; t< called.size(); t+=6){
+            if (inodeon[acdisk][called[t]->row()]==0x0000000){
+                selpar = 1;
+                break;
+            }
+        }
+        msgBox.setIcon(QMessageBox::Question);
+        msgBox.setText(QString("Do you want to copy %1 file(s)?").arg((called.size()- selpar)/6));
+        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        msgBox.setDefaultButton(QMessageBox::No);
+        int ret = msgBox.exec();
+        if (ret != QMessageBox::Yes){
+            return;
+        }
+        size_t needs= 0;
+        if (checkFreeSp(dat[!acdisk], siz[!acdisk], inodeon[acdisk], called, &needs) == -1) {
+            size_t free = ccos_calc_free_space(dat[!acdisk], siz[!acdisk]);
+            QMessageBox errBox;
+            errBox.critical(0,"Not enough space",
+                            QString("Sorry, but requires %1 bytes of additional disk space to copy").arg(needs-free));
+            return;
+        }
+        for (int t = 0; t< called.size(); t+=6){
+            if (inodeon[acdisk][called[t]->row()]==0x0000000){
+                continue;
+            }
+            if (ccos_is_dir(inodeon[acdisk][called[t]->row()])) {
+                if (curdir[!acdisk]->header.file_id != curdir[!acdisk]->dir_file_id) {
+                    QMessageBox errBox;
+                    errBox.critical(0,"Copying to non-root",
+                                    "Sorry, but folders can be copied only to root folder!");
+                    return;
+                }
+                char newname[CCOS_MAX_FILE_NAME];
+                memset(newname, 0, CCOS_MAX_FILE_NAME);
+                ccos_parse_file_name(inodeon[acdisk][called[t]->row()], newname, NULL, NULL, NULL);
+                ccos_create_dir(ccos_get_root_dir(dat[!acdisk], siz[!acdisk]), newname,
+                        dat[!acdisk], siz[!acdisk]);
+                uint16_t fils = 0;
+                ccos_inode_t** dirdata = NULL;
+                ccos_get_dir_contents(ccos_get_root_dir(dat[!acdisk], siz[!acdisk]),
+                        dat[!acdisk], &fils, &dirdata);
+                ccos_inode_t* newdir;
+                for (int c = 0; c < fils; c++) {
+                    char created[CCOS_MAX_FILE_NAME];
+                    memset(created, 0, CCOS_MAX_FILE_NAME);
+                    ccos_parse_file_name(dirdata[c], created, NULL, NULL, NULL);
+                    if (strcmp(created, newname) == 0 ){
+                        newdir = dirdata[c];
+                    }
+                }
+                fils = 0;
+                dirdata = NULL;
+                ccos_get_dir_contents(inodeon[acdisk][called[t]->row()], dat[acdisk], &fils, &dirdata);
+                for (int c = 0; c < fils; c++) {
+                    ccos_copy_file(dat[!acdisk], siz[!acdisk], newdir, dat[acdisk],
+                            dirdata[c]);
+                }
+            }
+            else {
+                if (curdir[!acdisk]->header.file_id == curdir[!acdisk]->dir_file_id) {
+                    QMessageBox errBox;
+                    errBox.critical(0,"Copying to root",
+                                    "Sorry, but files can be copied only to non-root folder!");
+                    return;
+                }
+                ccos_copy_file(dat[!acdisk], siz[!acdisk], curdir[!acdisk], dat[acdisk],
+                        inodeon[acdisk][called[t]->row()]);
+            }
+        }
+        isch[!acdisk] = 1;
+        doListTable(curdir[!acdisk], nrot[!acdisk], dat[!acdisk], siz[!acdisk], !acdisk, ui);
+        doListTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+    }
 }
 
 void MainWindow::Delete(){
@@ -599,6 +735,13 @@ void MainWindow::MkDir(){
         QString name = QInputDialog::getText(this, tr("Make dir"),
                                              tr("New directory name:"), QLineEdit::Normal,"");
         if (name == ""){
+            return;
+        }
+        size_t free = ccos_calc_free_space(dat[acdisk], siz[acdisk]);
+        if (free < 1024) {
+            QMessageBox errBox;
+            errBox.critical(0,"Not enough space",
+                            QString("Sorry, but requires %1 bytes of additional disk space to make dir").arg(1024-free));
             return;
         }
         ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);

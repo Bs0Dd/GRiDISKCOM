@@ -37,7 +37,7 @@ public slots:
     void SaveAs();
     void Add();
     void MkDir();
-    //void Copy();
+    void Copy();
     void Ren();
     void Label();
     void aboutQtShow();
