@@ -1,5 +1,5 @@
 ﻿#include "mainwindow.h"
-#include "./ui_mainwindow.h"
+#include "ui_mainwindow.h"
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QCloseEvent>
@@ -822,6 +822,7 @@ void  MainWindow::Ren(){
                 QMessageBox msgBox;
                 msgBox.critical(0,"Incorrect Name or Type",
                                 "File name or type can't be empty!");
+                return;
             }
             QString newname = rnam->getName();
             QString newtype = rnam->getType();

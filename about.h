@@ -14,10 +14,11 @@ class about : public QDialog
 {
     Q_OBJECT
 
+public slots:
+    void openrepo();
 public:
     explicit about(QWidget *parent = nullptr);
     ~about();
-    void openrepo();
 
 private:
     Ui::about *ui;

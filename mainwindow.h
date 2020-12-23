@@ -45,8 +45,8 @@ public slots:
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    bool isop[2] ={0}, nrot[2] ={0};
-    uint8_t* dat[2] ={NULL};
+    bool isop[2] = {0}, nrot[2] = {0};
+    uint8_t* dat[2] = {NULL};
     size_t siz[2] = {0};
     bool acdisk = 0;
     QFont diskfont;

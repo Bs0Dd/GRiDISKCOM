@@ -18,7 +18,6 @@ QString Rename::getType(){
 }
 
 void Rename::lockType(bool swch){
-    dir = swch;
     ui->lineEdit_2->setDisabled(swch);
 }
 

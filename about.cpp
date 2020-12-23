@@ -9,7 +9,7 @@ about::about(QWidget *parent) :
 {
     ui->setupUi(this);
     ui->label_5->setText(_PVER_);
-    connect(ui->pushButton, &QPushButton::clicked, this, &about::openrepo);
+    connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(openrepo()));
 }
 
 void about::openrepo()

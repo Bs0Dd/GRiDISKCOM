@@ -13,7 +13,6 @@ class Rename : public QDialog
 
 public:
     explicit Rename(QWidget *parent = nullptr);
-    bool dir = 0;
     QString getName();
     QString getType();
     void lockType(bool swch);

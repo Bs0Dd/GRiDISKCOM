@@ -44,7 +44,6 @@ add_executable(GRiDISKCOM
         ${SOURCE_DIR}/img.qrc
         ${SOURCE_DIR}/wrapper.h
         ${SOURCE_DIR}/wrapper.c
-        ${TS_FILES}
         ${SOURCE_DIR}/execico.rc
         )
 
