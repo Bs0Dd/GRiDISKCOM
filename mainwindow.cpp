@@ -11,10 +11,8 @@
 
 extern "C"{ //Load C "ccos_image" library headers
 #include <ccos_image.h>
-#include <ccos_private.h>
 #include <common.h>
 #include <wrapper.h>
-#include <string_utils.h>
 }
 
 using namespace std;
@@ -27,12 +25,8 @@ bool isch[2] = {0};
 
 //*Get file version and convert to QString ("A.B.C")
 QString ccos_get_file_version_qstr(ccos_inode_t* file) {
-    uint8_t major = file->version_major;
-    uint8_t minor = file->version_minor;
-    uint8_t patch = file->version_patch;
-    QString ver = "%1.%2.%3";
-    ver = ver.arg(major).arg(minor).arg(patch);
-    return ver;
+    version_t ver = ccos_get_file_version(file);
+    return QString("%1.%2.%3").arg(ver.major).arg(ver.minor).arg(ver.patch);
 }
 
 //*Convert data ("YYYY/MM/DD")
@@ -535,7 +529,7 @@ void MainWindow::Copy(){
                 continue;
             }
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()])) {
-                if (curdir[!acdisk]->header.file_id != curdir[!acdisk]->dir_file_id) {
+                if (ccos_file_id(curdir[!acdisk]) != ccos_file_id(ccos_get_root_dir(dat[!acdisk], siz[!acdisk]))) {
                     QMessageBox errBox;
                     errBox.critical(0,"Copying to non-root",
                                     "Sorry, but folders can be copied only to root folder!");
@@ -568,7 +562,7 @@ void MainWindow::Copy(){
                 }
             }
             else {
-                if (curdir[!acdisk]->header.file_id == curdir[!acdisk]->dir_file_id) {
+                if (ccos_file_id(curdir[!acdisk]) == ccos_file_id(ccos_get_root_dir(dat[!acdisk], siz[!acdisk]))) {
                     QMessageBox errBox;
                     errBox.critical(0,"Copying to root",
                                     "Sorry, but files can be copied only to non-root folder!");
