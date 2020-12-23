@@ -249,13 +249,15 @@ void doListTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz,
             tableWidget->setItem(row, 5, tMod);
         }
     }
-    size_t free = ccos_calc_free_space(dat, siz);
+    size_t free_space = ccos_calc_free_space(dat, siz);
     msg = "Free space: %1 bytes.";
-    label->setText(msg.arg(free));
+    label->setText(msg.arg(free_space));
     if (inodeon[curdisk].size()==0){
         drawempty(1, tableWidget);
         inodeon[curdisk].insert(inodeon[curdisk].begin(), 0x0000000);
     }
+
+    free(dirdata);
 }
 //[Service functions]
 
@@ -466,7 +468,12 @@ void MainWindow::Closef(){
     isch[acdisk] = 0;
     isop[acdisk] = 0;
     name[acdisk] = "";
-    dat[acdisk] = NULL;
+
+    if (dat[acdisk] != nullptr) {
+        free(dat[acdisk]);
+    }
+
+    dat[acdisk] = nullptr;
     siz[acdisk] = 0;
     if (acdisk == 0){
         tableWidget = ui->tableWidget;
@@ -747,6 +754,10 @@ void MainWindow::MkDir(){
 
 void MainWindow::Openf(){
     QString Qname = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img)");
+    if (dat[acdisk] != nullptr) {
+        free(dat[acdisk]);
+    }
+
     read_file(Qname.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
     if (Qname == ""){
         return;
@@ -888,6 +899,15 @@ void MainWindow::setactive1()
 
 MainWindow::~MainWindow()
 {
+    if (dat[0] != nullptr) {
+        free(dat[0]);
+        dat[0] = nullptr;
+    }
+    if (dat[1] != nullptr) {
+        free(dat[1]);
+        dat[1] = nullptr;
+    }
+
     delete ui;
 }
 
