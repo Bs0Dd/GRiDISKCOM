@@ -14,7 +14,7 @@ about::about(QWidget *parent) :
 
 void about::openrepo()
 {
-  QDesktopServices::openUrl(QUrl("https://github.com/Bs0Dd/GRiDISKCOM"));
+    QDesktopServices::openUrl(QUrl("https://github.com/Bs0Dd/GRiDISKCOM"));
 }
 
 about::~about()
