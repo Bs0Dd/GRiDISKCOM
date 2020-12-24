@@ -1,19 +1,15 @@
 cmake_minimum_required(VERSION 3.5)
-set(CMAKE_CXX_COMPILER "g++")
-
-set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${SOURCE_DIR})
 
 project(ccosclib)
 add_library(ccosclib STATIC
-        ${SOURCE_DIR}/string_utils.h
-        ${SOURCE_DIR}/string_utils.c
-        ${SOURCE_DIR}/common.h
-        ${SOURCE_DIR}/common.c
-        ${SOURCE_DIR}/ccos_image.h
-        ${SOURCE_DIR}/ccos_image.c
-        ${SOURCE_DIR}/ccos_private.c
-        ${SOURCE_DIR}/ccos_private.h
+        string_utils.h
+        string_utils.c
+        common.h
+        common.c
+        ccos_image.h
+        ccos_image.c
+        ccos_private.c
+        ccos_private.h
         )
 
 project(GRiDISKCOM LANGUAGES CXX)
@@ -31,20 +27,20 @@ find_package(QT NAMES Qt5 COMPONENTS Widgets REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 
 add_executable(GRiDISKCOM
-        ${SOURCE_DIR}/main.cpp
-        ${SOURCE_DIR}/mainwindow.cpp
-        ${SOURCE_DIR}/mainwindow.h
-        ${SOURCE_DIR}/mainwindow.ui
-        ${SOURCE_DIR}/about.cpp
-        ${SOURCE_DIR}/about.h
-        ${SOURCE_DIR}/about.ui
-        ${SOURCE_DIR}/rename.cpp
-        ${SOURCE_DIR}/rename.h
-        ${SOURCE_DIR}/rename.ui
-        ${SOURCE_DIR}/img.qrc
-        ${SOURCE_DIR}/wrapper.h
-        ${SOURCE_DIR}/wrapper.c
-        ${SOURCE_DIR}/execico.rc
+        main.cpp
+        mainwindow.cpp
+        mainwindow.h
+        mainwindow.ui
+        about.cpp
+        about.h
+        about.ui
+        rename.cpp
+        rename.h
+        rename.ui
+        img.qrc
+        wrapper.h
+        wrapper.c
+        execico.rc
         )
 
 if(WIN32)
