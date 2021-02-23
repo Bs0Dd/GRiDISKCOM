@@ -1,28 +1,28 @@
-#ifndef RENAME_H
-#define RENAME_H
+#ifndef RENDLG_H
+#define RENDLG_H
 
 #include <QDialog>
 
 namespace Ui {
-class Rename;
+class RenDlg;
 }
 
-class Rename : public QDialog
+class RenDlg : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit Rename(QWidget *parent = nullptr);
+    explicit RenDlg(QWidget *parent = nullptr);
     QString getName();
     QString getType();
     void lockType(bool swch);
-    void setINFsect(QString text);
+    void setInfo(QString text);
     void setName(QString text);
     void setType(QString text);
-    ~Rename();
+    ~RenDlg();
 
 private:
-    Ui::Rename *ui;
+    Ui::RenDlg *ui;
 };
 
-#endif // RENAME_H
+#endif // RENDLG_H

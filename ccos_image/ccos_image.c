@@ -1,6 +1,6 @@
-#include <ccos_image.h>
-#include <ccos_private.h>
-#include <common.h>
+#include "ccos_image.h"
+#include "ccos_private.h"
+#include "common.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>

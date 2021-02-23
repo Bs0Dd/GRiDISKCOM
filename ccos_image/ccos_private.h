@@ -5,7 +5,7 @@
 #ifndef CCOS_DISK_TOOL_CCOS_PRIVATE_H
 #define CCOS_DISK_TOOL_CCOS_PRIVATE_H
 
-#include <ccos_image.h>
+#include "ccos_image.h"
 
 #define CCOS_INVALID_BLOCK 0xFFFF
 

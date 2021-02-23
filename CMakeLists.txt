@@ -2,14 +2,14 @@ cmake_minimum_required(VERSION 3.5)
 
 project(ccosclib)
 add_library(ccosclib STATIC
-        string_utils.h
-        string_utils.c
-        common.h
-        common.c
-        ccos_image.h
-        ccos_image.c
-        ccos_private.c
-        ccos_private.h
+        ccos_image/string_utils.h
+        ccos_image/string_utils.c
+        ccos_image/common.h
+        ccos_image/common.c
+        ccos_image/ccos_image.h
+        ccos_image/ccos_image.c
+        ccos_image/ccos_private.c
+        ccos_image/ccos_private.h
         )
 
 project(GRiDISKCOM LANGUAGES CXX)
@@ -28,18 +28,18 @@ find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets REQUIRED)
 
 add_executable(GRiDISKCOM
         main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
-        about.cpp
-        about.h
-        about.ui
-        rename.cpp
-        rename.h
-        rename.ui
-        img.qrc
-        wrapper.h
-        wrapper.c
+        dialogs/mainwindow.cpp
+        dialogs/mainwindow.h
+        dialogs/mainwindow.ui
+        dialogs/abdlg.cpp
+        dialogs/abdlg.h
+        dialogs/abdlg.ui
+        dialogs/rendlg.cpp
+        dialogs/rendlg.h
+        dialogs/rendlg.ui
+        pics/img.qrc
+        ccos_image/wrapper.h
+        ccos_image/wrapper.c
         execico.rc
         )
 

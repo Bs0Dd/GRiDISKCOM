@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <string_utils.h>
+#include "string_utils.h"
 
 char* short_string_to_string(const short_string_t* short_string) {
   char* result = calloc(short_string->length + 1, sizeof(char));

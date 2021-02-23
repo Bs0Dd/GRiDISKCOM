@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Rename</class>
- <widget class="QDialog" name="Rename">
+ <class>RenDlg</class>
+ <widget class="QDialog" name="RenDlg">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -19,7 +19,7 @@
    <string>Name dialog</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="img.qrc">
+   <iconset resource="../pics/img.qrc">
     <normaloff>:/icos/gridisk.ico</normaloff>:/icos/gridisk.ico</iconset>
   </property>
   <widget class="QDialogButtonBox" name="buttonBox">
@@ -105,13 +105,13 @@
   </widget>
  </widget>
  <resources>
-  <include location="img.qrc"/>
+  <include location="../pics/img.qrc"/>
  </resources>
  <connections>
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>Rename</receiver>
+   <receiver>RenDlg</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -127,7 +127,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>Rename</receiver>
+   <receiver>RenDlg</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
