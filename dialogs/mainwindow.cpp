@@ -249,7 +249,8 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+    , ui(new Ui::MainWindow),
+    focused(0)
 {
     ui->setupUi(this);
 
@@ -268,6 +269,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tableWidget_2->horizontalHeader()->resizeSection(5, 80);
     addEmpty(0, ui->tableWidget);
     addEmpty(0, ui->tableWidget_2);
+    QFont diskfont;
     diskfont.setFamily(QString::fromUtf8("Arial"));
     diskfont.setPointSize(9);
     diskfont.setUnderline(false);
@@ -311,9 +313,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionRename, SIGNAL(triggered()), this, SLOT(Rename()));
     connect(ui->actionSave, SIGNAL(triggered()), this, SLOT(Save()));
     connect(ui->actionSave_as, SIGNAL(triggered()), this, SLOT(SaveAs()));
-    //  Cell clicking connect
-    connect(ui->tableWidget, SIGNAL(cellClicked(int, int)), this, SLOT(setActive0()));
-    connect(ui->tableWidget_2, SIGNAL(cellClicked(int, int)), this, SLOT(setActive1()));
     //  Cell activating connect
     connect(ui->tableWidget, SIGNAL(cellActivated(int, int)), this, SLOT(enterDir()));
     connect(ui->tableWidget_2, SIGNAL(cellActivated(int, int)), this, SLOT(enterDir()));
@@ -338,55 +337,60 @@ void MainWindow::Add(){
         }
         QStringList files = QFileDialog::getOpenFileNames(
                     this, "Select files to add");
-        size_t needs= 0;
-        if (checkFreeSp(dat[acdisk], siz[acdisk], files, &needs) == -1) {
-            size_t free = ccos_calc_free_space(dat[acdisk], siz[acdisk]);
-            QMessageBox errBox;
-            errBox.critical(0,"Not enough space",
-                            QString("Sorry, but requires %1 bytes of additional disk space to add").arg(needs-free));
-            return;
-        }
-        for(int i = 0; i < files.size(); i++){
-            uint8_t* fdat = NULL;
-            size_t fsiz = 0;
-            string fname = files[i].toStdString();
-            const size_t last_slash_idx = fname.find_last_of("/");
-            if (string::npos != last_slash_idx)
-                fname.erase(0, last_slash_idx + 1);
-            if (tildaCheck(fname) == -1){
-                rnam = new RenDlg(this);
-                rnam->setInfo((QString("Set correct name and type for %1:").arg(fname.c_str())));
-                while (true){
-                    bool ret = rnam->exec();
-                    if (ret == 1){
-                        if (rnam->getType().toLower() == "subject"){
-                            msgBox.critical(0,"Incorrect Type",
-                                            "Can't set directory type for file!");
-                        }
-                        else if (rnam->getName() == "" or rnam->getType() == ""){
-                            msgBox.critical(0,"Incorrect Name or Type",
-                                            "File name or type can't be empty!");
-                        }
-                        else{
-                            QString crnam = "%1~%2~";
-                            fname = crnam.arg(rnam->getName()).arg(rnam->getType()).toStdString();
-                            break;
-                        }
+        Addf(files);
+    }
+}
+
+void MainWindow::Addf(QStringList files){
+    QMessageBox msgBox;
+    size_t needs= 0;
+    if (checkFreeSp(dat[acdisk], siz[acdisk], files, &needs) == -1) {
+        size_t free = ccos_calc_free_space(dat[acdisk], siz[acdisk]);
+        QMessageBox errBox;
+        errBox.critical(0,"Not enough space",
+                        QString("Sorry, but requires %1 bytes of additional disk space to add").arg(needs-free));
+        return;
+    }
+    for(int i = 0; i < files.size(); i++){
+        uint8_t* fdat = NULL;
+        size_t fsiz = 0;
+        string fname = files[i].toStdString();
+        const size_t last_slash_idx = fname.find_last_of("/");
+        if (string::npos != last_slash_idx)
+            fname.erase(0, last_slash_idx + 1);
+        if (tildaCheck(fname) == -1){
+            rnam = new RenDlg(this);
+            rnam->setInfo((QString("Set correct name and type for %1:").arg(fname.c_str())));
+            while (true){
+                bool ret = rnam->exec();
+                if (ret == 1){
+                    if (rnam->getType().toLower() == "subject"){
+                        msgBox.critical(0,"Incorrect Type",
+                                        "Can't set directory type for file!");
                     }
-                    else
-                        return;
+                    else if (rnam->getName() == "" or rnam->getType() == ""){
+                        msgBox.critical(0,"Incorrect Name or Type",
+                                        "File name or type can't be empty!");
+                    }
+                    else{
+                        QString crnam = "%1~%2~";
+                        fname = crnam.arg(rnam->getName()).arg(rnam->getType()).toStdString();
+                        break;
+                    }
                 }
-            }
-            if (read_file(files[i].toStdString().c_str(), &fdat, &fsiz) == -1 ||
-                    ccos_add_file(curdir[acdisk], fdat, fsiz, fname.c_str(), dat[acdisk], siz[acdisk]) == NULL){
-                msgBox.critical(0,"Error",
-                                QString("Can't add \"%1\" to the image! Skipping...").arg(fname.c_str()));
+                else
+                    return;
             }
         }
-        if (files.size() != 0){
-            isch[acdisk]= 1;
-            fillTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+        if (read_file(files[i].toStdString().c_str(), &fdat, &fsiz) == -1 ||
+                ccos_add_file(curdir[acdisk], fdat, fsiz, fname.c_str(), dat[acdisk], siz[acdisk]) == NULL){
+            msgBox.critical(0,"Error",
+                            QString("Can't add \"%1\" to the image! Skipping...").arg(fname.c_str()));
         }
+    }
+    if (files.size() != 0){
+        isch[acdisk]= 1;
+        fillTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
 }
 
@@ -422,7 +426,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
 }
 
-void MainWindow::Closef(){
+int MainWindow::Closef(){
     if (isch[acdisk] == 1){
         QMessageBox msgBox;
         msgBox.setIcon(QMessageBox::Question);
@@ -437,7 +441,7 @@ void MainWindow::Closef(){
         if (ret == QMessageBox::Save)
             MainWindow::Save();
         else if (ret == QMessageBox::Cancel)
-            return;
+            return -1;
     }
 
     QTableWidget* tableWidget;
@@ -464,6 +468,7 @@ void MainWindow::Closef(){
     for(int row= tableWidget->rowCount(); 0<=row; row--)
         tableWidget-> removeRow(row);
     addEmpty(0, tableWidget);
+    return 0;
 }
 
 void MainWindow::Copy(){
@@ -589,29 +594,41 @@ void MainWindow::Delete(){
     }
 }
 
-void MainWindow::dragEnterEvent(QDragEnterEvent *event)
-{
-    if (event->mimeData()->hasUrls())
-            event->acceptProposedAction();
+void MainWindow::dragEnterEvent(QDragEnterEvent *event){
+   if (event->mimeData()->hasUrls())
+       event->acceptProposedAction();
 }
 
-void MainWindow::dropEvent(QDropEvent* event)
- {
+void MainWindow::dropEvent(QDropEvent* event){
    QStringList FilesList, DirsList;
    const QMimeData* mimeData = event->mimeData();
-   if (mimeData->hasUrls())
-   {
-
+   if (mimeData->hasUrls()){
      QList<QUrl> urlList = mimeData->urls();
      for (int i = 0; i < urlList.size() && i < 32; ++i){
        stat(urlList.at(i).toLocalFile().toStdString().c_str(), &info);
-       if( info.st_mode & S_IFDIR )
+       if (info.st_mode & S_IFDIR)
            DirsList.append(urlList.at(i).toLocalFile());
        else
            FilesList.append(urlList.at(i).toLocalFile());
      }
    }
- }
+   if (FilesList.length() == 1 && DirsList.length() == 0) {
+       string ext = FilesList[0].toStdString().substr(FilesList[0].toStdString().find_last_of(".") + 1);
+       transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return tolower(c); });
+       if (ext == "img"){
+           LoadImg(FilesList[0]);
+       }
+       else
+           if (isop[acdisk] && nrot[acdisk])
+               Addf(FilesList);
+   }
+   else if (!nrot[acdisk] && isop[acdisk]) {
+       // Folders will be later
+   }
+   else
+       if (isop[acdisk] && nrot[acdisk])
+           Addf(FilesList);
+}
 
 void MainWindow::enterDir(){
     QTableWidget* tw;
@@ -622,7 +639,7 @@ void MainWindow::enterDir(){
             tw= ui->tableWidget_2;
         QTableWidgetItem* called = tw->currentItem();
         ccos_inode_t* dir;
-        dir = inodeon[acdisk][called -> row()];
+        dir = inodeon[acdisk][called->row()];
         if (dir == 0x0000000 and nrot[acdisk]== 0)
             return;
         if (called -> row() == 0 and nrot[acdisk]== 1){
@@ -678,6 +695,12 @@ void MainWindow::ExtAll(){
     }
 }
 
+void MainWindow::focusChanged(QWidget *, QWidget *now)
+{
+    if (now == ui->tableWidget || now == ui->tableWidget_2)
+        setFocused(now == ui->tableWidget_2);
+}
+
 void MainWindow::Label(){
     if (isop[acdisk] == 1){
         QString dsk;
@@ -694,6 +717,31 @@ void MainWindow::Label(){
         isch[acdisk]= 1;
         fillTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
+}
+
+void MainWindow::LoadImg(QString path){
+    if (dat[acdisk] != nullptr)
+        if (Closef() == -1) return;
+
+    read_file(path.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
+    if (path == "")
+        return;
+    if(ccos_get_root_dir(dat[acdisk], siz[acdisk]) == NULL){
+        QMessageBox msgBox;
+        msgBox.critical(0,"Incorrect Image File",
+                        "<html><head/><body>"
+                        "<p align=\"center\">Image broken or have non-GRiD format!</p>"
+                        "<p align=\"center\">Keep in mind, that Bubble Memory and Hard Drive images is not supported now!</p>"
+                        "</body></html>");
+        return;
+    }
+    inodeon[acdisk].clear();
+    isch[acdisk] = 0;
+    isop[acdisk] = 1;
+    name[acdisk] = path;
+    ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
+    curdir[acdisk] = root;
+    fillTable(root, 0, dat[acdisk], siz[acdisk], acdisk, ui);
 }
 
 void MainWindow::MkDir(){
@@ -724,28 +772,7 @@ void MainWindow::MkDir(){
 
 void MainWindow::Openf(){
     QString Qname = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img)");
-    if (dat[acdisk] != nullptr)
-        free(dat[acdisk]);
-
-    read_file(Qname.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
-    if (Qname == "")
-        return;
-    if(ccos_get_root_dir(dat[acdisk], siz[acdisk]) == NULL){
-        QMessageBox msgBox;
-        msgBox.critical(0,"Incorrect Image File",
-                        "<html><head/><body>"
-                        "<p align=\"center\">Image broken or have non-GRiD format!</p>"
-                        "<p align=\"center\">Keep in mind, that Bubble Memory and Hard Drive images is not supported now!</p>"
-                        "</body></html>");
-        return;
-    }
-    inodeon[acdisk].clear();
-    isch[acdisk] = 0;
-    isop[acdisk] = 1;
-    name[acdisk] = Qname;
-    ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
-    curdir[acdisk] = root;
-    fillTable(root, 0, dat[acdisk], siz[acdisk], acdisk, ui);
+    LoadImg(Qname);
 }
 
 void  MainWindow::Rename(){
@@ -832,30 +859,20 @@ void MainWindow::SaveAs(){
     }
 }
 
-void MainWindow::setActive0()
+void MainWindow::setFocused(qint8 focused)
 {
-    if (acdisk == 1){
-        diskfont.setBold(false);
-        ui->groupBox_2->setFont(diskfont);
-        ui->tableWidget_2->setFont(diskfont);
-        diskfont.setBold(true);
-        ui->groupBox->setFont(diskfont);
-        ui->tableWidget->setFont(diskfont);
-        acdisk = 0;
-    }
-}
+    this->focused = focused;
+    acdisk = focused;
 
-void MainWindow::setActive1()
-{
-    if (acdisk == 0){
-        diskfont.setBold(false);
-        ui->groupBox->setFont(diskfont);
-        ui->tableWidget->setFont(diskfont);
-        diskfont.setBold(true);
-        ui->groupBox_2->setFont(diskfont);
-        ui->tableWidget_2->setFont(diskfont);
-        acdisk = 1;
-    }
+    QFont font = ui->groupBox->font();
+    font.setBold(!focused);
+    ui->groupBox->setFont(font);
+    ui->tableWidget->setFont(font);
+
+    font = ui->groupBox_2->font();
+    font.setBold(focused);
+    ui->groupBox_2->setFont(font);
+    ui->tableWidget_2->setFont(font);
 }
 
 MainWindow::~MainWindow()

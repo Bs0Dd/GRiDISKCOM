@@ -27,23 +27,24 @@ public slots:
     void AboutShow();
     void AboutQtShow();
     void Add();
+    void Addf(QStringList files);
     void closeEvent(QCloseEvent *event);
-    void Closef();
+    int  Closef();
     void Copy();
     void dragEnterEvent(QDragEnterEvent *event);
     void dropEvent(QDropEvent* event);
     void Delete();
     void enterDir();
+    void focusChanged(QWidget*, QWidget* now);
     void Ext();
     void ExtAll();
+    void LoadImg(QString path);
     void Label();
     void MkDir();
     void Openf();
     void Rename();
     void Save();
     void SaveAs();
-    void setActive0();
-    void setActive1();
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
@@ -51,11 +52,12 @@ public:
     uint8_t* dat[2] = {NULL};
     size_t siz[2] = {0};
     bool acdisk = 0;
-    QFont diskfont;
     QString name[2];
 private:
     Ui::MainWindow *ui;
     AbDlg *abss;
     RenDlg *rnam;
+    qint8 focused;
+    void setFocused(qint8 focused);
 };
 #endif // MAINWINDOW_H
