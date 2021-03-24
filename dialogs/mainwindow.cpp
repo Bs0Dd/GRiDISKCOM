@@ -316,6 +316,7 @@ MainWindow::MainWindow(QWidget *parent)
     //  Cell activating connect
     connect(ui->tableWidget, SIGNAL(cellActivated(int, int)), this, SLOT(enterDir()));
     connect(ui->tableWidget_2, SIGNAL(cellActivated(int, int)), this, SLOT(enterDir()));
+
 }
 
 void MainWindow::AboutShow(){
@@ -859,8 +860,7 @@ void MainWindow::SaveAs(){
     }
 }
 
-void MainWindow::setFocused(qint8 focused)
-{
+void MainWindow::setFocused(qint8 focused){
     this->focused = focused;
     acdisk = focused;
 
