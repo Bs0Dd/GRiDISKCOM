@@ -1,3 +1,4 @@
 *.cpp.autosave
+*.txt.user.*
 *.txt.user
 *.db
