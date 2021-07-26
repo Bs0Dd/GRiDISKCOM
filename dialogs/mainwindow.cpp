@@ -1,12 +1,4 @@
-﻿#include "mainwindow.h"
-#include "ui_mainwindow.h"
-#include <QFileDialog>
-#include <QMessageBox>
-#include <QCloseEvent>
-#include <QInputDialog>
-#include <QMimeData>
-#include <vector>
-#include <fstream>
+#include "mainwindow.h"
 
 #include <iostream>
 
@@ -184,7 +176,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
         tableWidget->setItem(0, 3, tVer);
         tableWidget->setItem(0, 4, tCreate);
         tableWidget->setItem(0, 5, tMod);
-        inodeon[curdisk].insert(inodeon[curdisk].begin(), 0x0000000);
+        inodeon[curdisk].insert(inodeon[curdisk].begin(), 0);
         fcount = 1;
     }
     for(int c = 0; c < fils; c++){
@@ -203,6 +195,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
         QString qtype = type;
         if (qtype.toLower() == "subject")
             tType->setText(qtype + " <DIR>");
+
         tType->setFlags(tType->flags() ^ Qt::ItemIsEditable);
         tSize->setText(QString::number(ccos_get_file_size(dirdata[c])));
         tSize->setFlags(tSize->flags() ^ Qt::ItemIsEditable);
@@ -213,7 +206,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
         tMod->setText(ccosDateToQstr(ccos_get_mod_date(dirdata[c])));
         tMod->setFlags(tMod->flags() ^ Qt::ItemIsEditable);
         if (ccos_is_dir(dirdata[c])){
-            inodeon[curdisk].insert(inodeon[curdisk].begin() + fcount,dirdata[c]);
+            inodeon[curdisk].insert(inodeon[curdisk].begin() + fcount, dirdata[c]);
             tableWidget->insertRow(fcount);
             tableWidget->setItem(fcount, 0, tFname);
             tableWidget->setItem(fcount, 1, tType);
@@ -240,7 +233,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
     label->setText(msg.arg(free_space));
     if (inodeon[curdisk].size()==0){
         addEmpty(1, tableWidget);
-        inodeon[curdisk].insert(inodeon[curdisk].begin(), 0x0000000);
+        inodeon[curdisk].insert(inodeon[curdisk].begin(), 0);
     }
 
     free(dirdata);
@@ -254,7 +247,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    trace_init(1); //TRACE MESSAGING ENABLE
+    trace_init(1); //Only for debugging
 
     QMainWindow::setWindowTitle(QString("GRiDISK Commander ")+_PVER_);
     ui->tableWidget->horizontalHeader()->resizeSection(0, 155);
@@ -287,35 +280,35 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tableWidget_2->verticalHeader()->hide();
     ui->tableWidget_2->setSelectionBehavior(QAbstractItemView::SelectRows);
     //  Buttons connecting
-    connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(Openf()));
-    connect(ui->pushButton_2, SIGNAL(clicked()), this, SLOT(Closef()));
+    connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(OpenImg()));
+    connect(ui->pushButton_2, SIGNAL(clicked()), this, SLOT(CloseImg()));
     connect(ui->pushButton_3, SIGNAL(clicked()), this, SLOT(Save()));
     connect(ui->pushButton_4, SIGNAL(clicked()), this, SLOT(Add()));
     connect(ui->pushButton_5, SIGNAL(clicked()), this, SLOT(Copy()));
     connect(ui->pushButton_6, SIGNAL(clicked()), this, SLOT(Rename()));
     connect(ui->pushButton_7, SIGNAL(clicked()), this, SLOT(Delete()));
-    connect(ui->pushButton_8, SIGNAL(clicked()), this, SLOT(Ext()));
-    connect(ui->pushButton_9, SIGNAL(clicked()), this, SLOT(MkDir()));
-    connect(ui->pushButton_10, SIGNAL(clicked()), this, SLOT(ExtAll()));
+    connect(ui->pushButton_8, SIGNAL(clicked()), this, SLOT(Extract()));
+    connect(ui->pushButton_9, SIGNAL(clicked()), this, SLOT(MakeDir()));
+    connect(ui->pushButton_10, SIGNAL(clicked()), this, SLOT(ExtractAll()));
     //  Context menus connecting
     connect(ui->actionAdd, SIGNAL(triggered()), this, SLOT(Add()));
     connect(ui->actionAbout, SIGNAL(triggered()), this, SLOT(AboutShow()));
     connect(ui->actionAbout_Qt, SIGNAL(triggered()), this, SLOT(AboutQtShow()));
     connect(ui->actionChange_label, SIGNAL(triggered()), this, SLOT(Label()));
-    connect(ui->actionClose, SIGNAL(triggered()), this, SLOT(Closef()));
+    connect(ui->actionClose, SIGNAL(triggered()), this, SLOT(CloseImg()));
     connect(ui->actionCopy, SIGNAL(triggered()), this, SLOT(Copy()));
     connect(ui->actionDelete, SIGNAL(triggered()), this, SLOT(Delete()));
     connect(ui->actionExit, SIGNAL(triggered()), this, SLOT(close()));
-    connect(ui->actionExtract, SIGNAL(triggered()), this, SLOT(Ext()));
-    connect(ui->actionExtract_all, SIGNAL(triggered()), this, SLOT(ExtAll()));
-    connect(ui->actionMake_dir, SIGNAL(triggered()), this, SLOT(MkDir()));
-    connect(ui->actionOpen, SIGNAL(triggered()), this, SLOT(Openf()));
+    connect(ui->actionExtract, SIGNAL(triggered()), this, SLOT(Extract()));
+    connect(ui->actionExtract_all, SIGNAL(triggered()), this, SLOT(ExtractAll()));
+    connect(ui->actionMake_dir, SIGNAL(triggered()), this, SLOT(MakeDir()));
+    connect(ui->actionOpen, SIGNAL(triggered()), this, SLOT(OpenImg()));
     connect(ui->actionRename, SIGNAL(triggered()), this, SLOT(Rename()));
     connect(ui->actionSave, SIGNAL(triggered()), this, SLOT(Save()));
     connect(ui->actionSave_as, SIGNAL(triggered()), this, SLOT(SaveAs()));
     //  Cell activating connect
-    connect(ui->tableWidget, SIGNAL(cellActivated(int, int)), this, SLOT(enterDir()));
-    connect(ui->tableWidget_2, SIGNAL(cellActivated(int, int)), this, SLOT(enterDir()));
+    connect(ui->tableWidget, SIGNAL(cellActivated(int, int)), this, SLOT(OpenDir()));
+    connect(ui->tableWidget_2, SIGNAL(cellActivated(int, int)), this, SLOT(OpenDir()));
 
 }
 
@@ -333,26 +326,74 @@ void MainWindow::Add(){
     if (isop[acdisk] == 1){
         if (nrot[acdisk] == 0){
             msgBox.information(this, tr("Add file(s)"),
-                               tr("Sorry, but GRiD supports files only in directories!"));
+                               tr("GRiD supports files only in directories!"));
             return;
         }
         QStringList files = QFileDialog::getOpenFileNames(
                     this, "Select files to add");
-        Addf(files);
+        AddFiles(files, curdir[acdisk]);
     }
 }
 
-void MainWindow::Addf(QStringList files){
+void MainWindow::AddDirs(QStringList dirs){
+    ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
+    for (int i = 0; i < dirs.size(); i++){
+        string dname = dirs[i].toStdString();
+        const size_t last_slash_idx = dname.find_last_of("/");
+        if (string::npos != last_slash_idx)
+            dname.erase(0, last_slash_idx + 1);
+        size_t frees = ccos_calc_free_space(dat[acdisk], siz[acdisk]);
+        if (frees < 1024) {
+            QMessageBox errBox;
+            errBox.critical(0,"Not enough space",
+                            QString("Requires %1 bytes of additional disk space to make dir!").arg(1024-frees));
+            break;
+        }
+        if (ccos_create_dir(root, dname.c_str(), dat[acdisk], siz[acdisk]) == -1){
+            QMessageBox errBox;
+            errBox.critical(0,"Failed to create folder",
+                            "Program can't create a folder in the image!");
+            break;
+        }
+        uint16_t fils = 0;
+        ccos_inode_t** dirdata = NULL;
+        ccos_inode_t* dir = NULL;
+        ccos_get_dir_contents(root, dat[acdisk], &fils, &dirdata);
+        char basename[CCOS_MAX_FILE_NAME];
+        for (int c = 0; c < fils; c++){
+            memset(basename, 0, CCOS_MAX_FILE_NAME);
+            ccos_parse_file_name(dirdata[c], basename, NULL, NULL, NULL);
+            if (!strcmp(basename, dname.c_str())){
+                dir = dirdata[c];
+                break;
+            }
+        }
+        QDir scandir(dirs[i]);
+        QFileInfoList filesInfo = scandir.entryInfoList(QDir::Files);
+        QStringList files;
+        for (int c = 0; c < filesInfo.size(); c++){
+            files.append(filesInfo[c].absoluteFilePath());
+        }
+        if (AddFiles(files, dir) == -1)
+          break;
+    }
+    if (dirs.size() != 0){
+        isch[acdisk]= 1;
+        fillTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+    }
+}
+
+int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
     QMessageBox msgBox;
     size_t needs= 0;
     if (checkFreeSp(dat[acdisk], siz[acdisk], files, &needs) == -1) {
         size_t free = ccos_calc_free_space(dat[acdisk], siz[acdisk]);
         QMessageBox errBox;
         errBox.critical(0,"Not enough space",
-                        QString("Sorry, but requires %1 bytes of additional disk space to add").arg(needs-free));
-        return;
+                        QString("Requires %1 bytes of additional disk space to add!").arg(needs-free));
+        return -1;
     }
-    for(int i = 0; i < files.size(); i++){
+    for (int i = 0; i < files.size(); i++){
         uint8_t* fdat = NULL;
         size_t fsiz = 0;
         string fname = files[i].toStdString();
@@ -380,11 +421,11 @@ void MainWindow::Addf(QStringList files){
                     }
                 }
                 else
-                    return;
+                    return -1;
             }
         }
         if (read_file(files[i].toStdString().c_str(), &fdat, &fsiz) == -1 ||
-                ccos_add_file(curdir[acdisk], fdat, fsiz, fname.c_str(), dat[acdisk], siz[acdisk]) == NULL){
+                ccos_add_file(copyTo, fdat, fsiz, fname.c_str(), dat[acdisk], siz[acdisk]) == NULL){
             msgBox.critical(0,"Error",
                             QString("Can't add \"%1\" to the image! Skipping...").arg(fname.c_str()));
         }
@@ -393,6 +434,7 @@ void MainWindow::Addf(QStringList files){
         isch[acdisk]= 1;
         fillTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
+    return 0;
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -427,7 +469,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
 }
 
-int MainWindow::Closef(){
+int MainWindow::CloseImg(){
     if (isch[acdisk] == 1){
         QMessageBox msgBox;
         msgBox.setIcon(QMessageBox::Question);
@@ -483,11 +525,11 @@ void MainWindow::Copy(){
         QList<QTableWidgetItem *> called = tw->selectedItems();
         if (called.size() == 0)
             return;
-        if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0x0000000)
+        if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0)
             return;
         bool selpar = 0;
         for (int t = 0; t< called.size(); t+=6){
-            if (inodeon[acdisk][called[t]->row()]==0x0000000){
+            if (inodeon[acdisk][called[t]->row()]==0){
                 selpar = 1;
                 break;
             }
@@ -504,17 +546,17 @@ void MainWindow::Copy(){
             size_t free = ccos_calc_free_space(dat[!acdisk], siz[!acdisk]);
             QMessageBox errBox;
             errBox.critical(0,"Not enough space",
-                            QString("Sorry, but requires %1 bytes of additional disk space to copy").arg(needs-free));
+                            QString("Requires %1 bytes of additional disk space to copy").arg(needs-free));
             return;
         }
         for (int t = 0; t< called.size(); t+=6){
-            if (inodeon[acdisk][called[t]->row()]==0x0000000)
+            if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()])) {
                 if (ccos_file_id(curdir[!acdisk]) != ccos_file_id(ccos_get_root_dir(dat[!acdisk], siz[!acdisk]))) {
                     QMessageBox errBox;
                     errBox.critical(0,"Copying to non-root",
-                                    "Sorry, but folders can be copied only to root folder!");
+                                    "Folders can be copied only to root folder!");
                     return;
                 }
                 char newname[CCOS_MAX_FILE_NAME];
@@ -545,7 +587,7 @@ void MainWindow::Copy(){
                 if (ccos_file_id(curdir[!acdisk]) == ccos_file_id(ccos_get_root_dir(dat[!acdisk], siz[!acdisk]))) {
                     QMessageBox errBox;
                     errBox.critical(0,"Copying to root",
-                                    "Sorry, but files can be copied only to non-root folder!");
+                                    "Files can be copied only to non-root folder!");
                     return;
                 }
                 ccos_copy_file(dat[!acdisk], siz[!acdisk], curdir[!acdisk], dat[acdisk],
@@ -569,11 +611,11 @@ void MainWindow::Delete(){
         QList<QTableWidgetItem *> called = tw->selectedItems();
         if (called.size() == 0)
             return;
-        if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0x0000000)
+        if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0)
             return;
         bool selpar = 0;
         for (int t = 0; t< called.size(); t+=6){
-            if (inodeon[acdisk][called[t]->row()]==0x0000000){
+            if (inodeon[acdisk][called[t]->row()]==0){
                 selpar = 1;
                 break;
             }
@@ -586,7 +628,7 @@ void MainWindow::Delete(){
         if (ret != QMessageBox::Yes)
             return;
         for (int t = 0; t< called.size(); t+=6){
-            if (inodeon[acdisk][called[t]->row()]==0x0000000)
+            if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
             ccos_delete_file(dat[acdisk], siz[acdisk], inodeon[acdisk][called[t]->row()]);
         }
@@ -621,44 +663,18 @@ void MainWindow::dropEvent(QDropEvent* event){
        }
        else
            if (isop[acdisk] && nrot[acdisk])
-               Addf(FilesList);
+               AddFiles(FilesList, curdir[acdisk]);
    }
    else if (!nrot[acdisk] && isop[acdisk]) {
-       // Folders will be later
+       AddDirs(DirsList);
+
    }
    else
        if (isop[acdisk] && nrot[acdisk])
-           Addf(FilesList);
+           AddFiles(FilesList, curdir[acdisk]);
 }
 
-void MainWindow::enterDir(){
-    QTableWidget* tw;
-    if (isop[acdisk] == 1){
-        if (acdisk ==0)
-            tw= ui->tableWidget;
-        else
-            tw= ui->tableWidget_2;
-        QTableWidgetItem* called = tw->currentItem();
-        ccos_inode_t* dir;
-        dir = inodeon[acdisk][called->row()];
-        if (dir == 0x0000000 and nrot[acdisk]== 0)
-            return;
-        if (called -> row() == 0 and nrot[acdisk]== 1){
-            ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
-            curdir[acdisk] = (ccos_get_parent_dir(curdir[acdisk], dat[acdisk]));
-            if (curdir[acdisk] == root)
-                nrot[acdisk] = 0;
-            fillTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
-        }
-        else if (ccos_is_dir(dir)){
-            curdir[acdisk] = dir;
-            nrot[acdisk] = 1;
-            fillTable(dir, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
-        }
-    }
-}
-
-void MainWindow::Ext(){
+void MainWindow::Extract(){
     QTableWidget* tw;
     if (isop[acdisk] == 1){
         if (acdisk ==0)
@@ -668,14 +684,14 @@ void MainWindow::Ext(){
         QList<QTableWidgetItem *> called = tw->selectedItems();
         if (called.size() == 0)
             return;
-        if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0x0000000)
+        if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0)
             return;
         QString todir = QFileDialog::getExistingDirectory(this, tr("Extract to"), "",
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
         if (todir == "")
             return;
         for (int t = 0; t< called.size(); t+=6){
-            if (inodeon[acdisk][called[t]->row()]==0x0000000)
+            if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()]))
                 dump_dir_to(name[acdisk].toStdString().c_str(), inodeon[acdisk][called[t]->row()],
@@ -686,7 +702,7 @@ void MainWindow::Ext(){
     }
 }
 
-void MainWindow::ExtAll(){
+void MainWindow::ExtractAll(){
     if (isop[acdisk] == 1){
         QString todir = QFileDialog::getExistingDirectory(this, tr("Extract all to"), "",
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
@@ -722,7 +738,7 @@ void MainWindow::Label(){
 
 void MainWindow::LoadImg(QString path){
     if (dat[acdisk] != nullptr)
-        if (Closef() == -1) return;
+        if (CloseImg() == -1) return;
 
     read_file(path.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
     if (path == "")
@@ -745,12 +761,12 @@ void MainWindow::LoadImg(QString path){
     fillTable(root, 0, dat[acdisk], siz[acdisk], acdisk, ui);
 }
 
-void MainWindow::MkDir(){
+void MainWindow::MakeDir(){
     if (isop[acdisk] == 1){
         if (nrot[acdisk] == 1){
             QMessageBox msgBox;
             msgBox.information(0,"Make dir",
-                               "Sorry, but GRiD supports directories only in root!");
+                               "GRiD supports directories only in root!");
             return;
         }
         QString name = QInputDialog::getText(this, tr("Make dir"),
@@ -761,17 +777,49 @@ void MainWindow::MkDir(){
         if (free < 1024) {
             QMessageBox errBox;
             errBox.critical(0,"Not enough space",
-                            QString("Sorry, but requires %1 bytes of additional disk space to make dir").arg(1024-free));
+                            QString("Requires %1 bytes of additional disk space to make dir!").arg(1024-free));
             return;
         }
         ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
-        ccos_create_dir(root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]);
+        if (ccos_create_dir(root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]) == -1){
+            QMessageBox errBox;
+            errBox.critical(0,"Failed to create folder",
+                            "Program can't create a folder in the image!");
+            return;
+        }
         isch[acdisk] = 1;
         fillTable(root, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
 }
 
-void MainWindow::Openf(){
+void MainWindow::OpenDir(){
+    QTableWidget* tw;
+    if (isop[acdisk] == 1){
+        if (acdisk ==0)
+            tw= ui->tableWidget;
+        else
+            tw= ui->tableWidget_2;
+        QTableWidgetItem* called = tw->currentItem();
+        ccos_inode_t* dir;
+        dir = inodeon[acdisk][called->row()];
+        if (dir == 0 and nrot[acdisk]== 0)
+            return;
+        if (called -> row() == 0 and nrot[acdisk]== 1){
+            ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
+            curdir[acdisk] = (ccos_get_parent_dir(curdir[acdisk], dat[acdisk]));
+            if (curdir[acdisk] == root)
+                nrot[acdisk] = 0;
+            fillTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+        }
+        else if (ccos_is_dir(dir)){
+            curdir[acdisk] = dir;
+            nrot[acdisk] = 1;
+            fillTable(dir, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+        }
+    }
+}
+
+void MainWindow::OpenImg(){
     QString Qname = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img)");
     LoadImg(Qname);
 }
@@ -789,7 +837,7 @@ void  MainWindow::Rename(){
                 return;
             reninode = inodeon[acdisk][ui->tableWidget_2->currentRow()];
         }
-        if (reninode == 0x0000000){
+        if (reninode == 0){
             return;
         }
         char basename[CCOS_MAX_FILE_NAME];

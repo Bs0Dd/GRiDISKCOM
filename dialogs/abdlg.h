@@ -2,6 +2,9 @@
 #define ABDLG_H
 
 #include <QDialog>
+#include <QDesktopServices>
+#include <QUrl>
+#include "ui_abdlg.h"
 
 #define _PVER_ "v0.15-beta"
 

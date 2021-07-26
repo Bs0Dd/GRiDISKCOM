@@ -1,6 +1,4 @@
 #include "rendlg.h"
-#include "ui_rendlg.h"
-#include <QMessageBox>
 
 RenDlg::RenDlg(QWidget *parent) :
     QDialog(parent),

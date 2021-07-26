@@ -1,7 +1,4 @@
 #include "abdlg.h"
-#include "ui_abdlg.h"
-#include <QDesktopServices>
-#include <QUrl>
 
 AbDlg::AbDlg(QWidget *parent) :
     QDialog(parent),

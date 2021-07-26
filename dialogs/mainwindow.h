@@ -2,9 +2,21 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QCloseEvent>
+#include <QInputDialog>
+#include <QMimeData>
+#include <vector>
+#include <fstream>
+#include "ui_mainwindow.h"
 #include "abdlg.h"
 #include "rendlg.h"
 #include "sys/stat.h"
+
+extern "C"{ //Include for ccos_inode_t type
+#include <ccos_image/ccos_private.h>
+}
 
 #if defined(WIN32)
 #define szcor 20
@@ -27,21 +39,22 @@ public slots:
     void AboutShow();
     void AboutQtShow();
     void Add();
-    void Addf(QStringList files);
+    void AddDirs(QStringList dirs);
+    int  AddFiles(QStringList files, ccos_inode_t* copyTo);
     void closeEvent(QCloseEvent *event);
-    int  Closef();
+    int  CloseImg();
     void Copy();
     void dragEnterEvent(QDragEnterEvent *event);
     void dropEvent(QDropEvent* event);
     void Delete();
-    void enterDir();
+    void OpenDir();
     void focusChanged(QWidget*, QWidget* now);
-    void Ext();
-    void ExtAll();
+    void Extract();
+    void ExtractAll();
     void LoadImg(QString path);
     void Label();
-    void MkDir();
-    void Openf();
+    void MakeDir();
+    void OpenImg();
     void Rename();
     void Save();
     void SaveAs();
