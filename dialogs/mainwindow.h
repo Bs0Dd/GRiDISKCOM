@@ -37,7 +37,6 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 public slots:
     void AboutShow();
-    void AboutQtShow();
     void Add();
     void AddDirs(QStringList dirs);
     int  AddFiles(QStringList files, ccos_inode_t* copyTo);

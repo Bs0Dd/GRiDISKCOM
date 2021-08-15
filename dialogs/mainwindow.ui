@@ -29,8 +29,8 @@
    <string>GRiDISK Commander</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="../pics/img.qrc">
-    <normaloff>:/icos/gridisk.ico</normaloff>:/icos/gridisk.ico</iconset>
+   <iconset resource="../icon/icon.qrc">
+    <normaloff>:/icon/gridisk.ico</normaloff>:/icon/gridisk.ico</iconset>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_10">
@@ -486,7 +486,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>21</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -517,10 +517,7 @@
     <property name="title">
      <string>About</string>
     </property>
-    <addaction name="separator"/>
     <addaction name="actionAbout"/>
-    <addaction name="separator"/>
-    <addaction name="actionAbout_Qt"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -669,11 +666,6 @@
     <string>Ctrl+Shift+X</string>
    </property>
   </action>
-  <action name="actionAbout_Qt">
-   <property name="text">
-    <string>About Qt</string>
-   </property>
-  </action>
   <action name="actionChange_label">
    <property name="text">
     <string>Change label</string>
@@ -692,7 +684,7 @@
   </action>
  </widget>
  <resources>
-  <include location="../pics/img.qrc"/>
+  <include location="../icon/icon.qrc"/>
  </resources>
  <connections/>
 </ui>

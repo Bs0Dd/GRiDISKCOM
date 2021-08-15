@@ -1,7 +1,5 @@
 #include "mainwindow.h"
 
-#include <iostream>
-
 extern "C"{ //Load C "ccos_image" library headers
 #include <ccos_image/ccos_image.h>
 #include <ccos_image/common.h>
@@ -247,7 +245,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    trace_init(1); //Only for debugging
+    trace_init(0); //Set this to 1 for debug trace
 
     QMainWindow::setWindowTitle(QString("GRiDISK Commander ")+_PVER_);
     ui->tableWidget->horizontalHeader()->resizeSection(0, 155);
@@ -293,7 +291,6 @@ MainWindow::MainWindow(QWidget *parent)
     //  Context menus connecting
     connect(ui->actionAdd, SIGNAL(triggered()), this, SLOT(Add()));
     connect(ui->actionAbout, SIGNAL(triggered()), this, SLOT(AboutShow()));
-    connect(ui->actionAbout_Qt, SIGNAL(triggered()), this, SLOT(AboutQtShow()));
     connect(ui->actionChange_label, SIGNAL(triggered()), this, SLOT(Label()));
     connect(ui->actionClose, SIGNAL(triggered()), this, SLOT(CloseImg()));
     connect(ui->actionCopy, SIGNAL(triggered()), this, SLOT(Copy()));
@@ -315,10 +312,6 @@ MainWindow::MainWindow(QWidget *parent)
 void MainWindow::AboutShow(){
     abss = new AbDlg(this);
     abss->exec();
-}
-
-void MainWindow::AboutQtShow(){
-    QMessageBox::aboutQt(this, "About Qt");
 }
 
 void MainWindow::Add(){
