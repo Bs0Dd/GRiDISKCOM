@@ -1,12 +1,21 @@
 # GRiDISK Commander
-GRiDISK Commander - File manager for GRiD OS disks
+GRiDISK Commander - File manager for GRiD OS standard disks, that used in GRiD Compass laptops.
 
-Commander can do basic operations with files and folders in image
+![Main Window](https://raw.githubusercontent.com/Bs0Dd/GRiDISKCOM/main/mainwindow.png)
 
+Commander can:
 
-* Needs MinGW x32 or x64 with Qt5 to compile in Windows
+* Add files to image.
+* Create/add folders to image.
+* Transfer files between images.
+* Dump files to computer.
+* Change name for files/folders.
+* Change image label.
 
-* Needs Cmake with Qt5 to compile in Linux
+## Building requirements
+* Needs MinGW x32 or x64 with Qt5 to compile in Windows.
+* Needs Cmake with Qt5 to compile in Linux.
 
-
-Tested on latest MS Win10 x64 (x64 release), MS Win7 x64 (x32 release) and Ubuntu 20.04 LTS (x64 release)
+## Special thanks to
+* [BOOtak](https://github.com/BOOtak) for first testing, bugfixes and [core library](https://github.com/BOOtak/CCOS-disk-utils) for this application.
+* [usernameak](https://github.com/usernameak) and other people for developing GRiD Compass emulator (for MAME), that helped test the disks.
