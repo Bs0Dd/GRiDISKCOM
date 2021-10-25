@@ -1,3 +1,3 @@
-[submodule "/media/bs0dd/Elements/GRiDISKCOM/ccos_image"]
-	path = /media/bs0dd/Elements/GRiDISKCOM/ccos_image
+[submodule "ccos_image"]
+	path = ccos_image
 	url = https://github.com/Bs0Dd/CCOS-disk-utils
