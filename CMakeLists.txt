@@ -15,6 +15,7 @@ add_library(ccosclib STATIC
 project(GRiDISKCOM LANGUAGES CXX)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
+include_directories(ccos_image)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)

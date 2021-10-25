@@ -146,7 +146,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
             msg = "Disk %1 - %2";
         else
             msg = "Disk %1 - %2*";
-        box->setTitle(msg.arg(disk).arg(labd));
+        box->setTitle(msg.arg(disk, labd));
     }
     char basename[CCOS_MAX_FILE_NAME];
     char type[CCOS_MAX_FILE_NAME];
@@ -304,8 +304,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionSave, SIGNAL(triggered()), this, SLOT(Save()));
     connect(ui->actionSave_as, SIGNAL(triggered()), this, SLOT(SaveAs()));
     //  Cell activating connect
-    connect(ui->tableWidget, SIGNAL(cellActivated(int, int)), this, SLOT(OpenDir()));
-    connect(ui->tableWidget_2, SIGNAL(cellActivated(int, int)), this, SLOT(OpenDir()));
+    connect(ui->tableWidget, SIGNAL(cellActivated(int,int)), this, SLOT(OpenDir()));
+    connect(ui->tableWidget_2, SIGNAL(cellActivated(int,int)), this, SLOT(OpenDir()));
 
 }
 
@@ -342,24 +342,12 @@ void MainWindow::AddDirs(QStringList dirs){
                             QString("Requires %1 bytes of additional disk space to make dir!").arg(1024-frees));
             break;
         }
-        if (ccos_create_dir(root, dname.c_str(), dat[acdisk], siz[acdisk]) == -1){
+        ccos_inode_t* newdir = ccos_create_dir(root, dname.c_str(), dat[acdisk], siz[acdisk]);
+        if (newdir == NULL){
             QMessageBox errBox;
             errBox.critical(0,"Failed to create folder",
                             "Program can't create a folder in the image!");
             break;
-        }
-        uint16_t fils = 0;
-        ccos_inode_t** dirdata = NULL;
-        ccos_inode_t* dir = NULL;
-        ccos_get_dir_contents(root, dat[acdisk], &fils, &dirdata);
-        char basename[CCOS_MAX_FILE_NAME];
-        for (int c = 0; c < fils; c++){
-            memset(basename, 0, CCOS_MAX_FILE_NAME);
-            ccos_parse_file_name(dirdata[c], basename, NULL, NULL, NULL);
-            if (!strcmp(basename, dname.c_str())){
-                dir = dirdata[c];
-                break;
-            }
         }
         QDir scandir(dirs[i]);
         QFileInfoList filesInfo = scandir.entryInfoList(QDir::Files);
@@ -367,7 +355,7 @@ void MainWindow::AddDirs(QStringList dirs){
         for (int c = 0; c < filesInfo.size(); c++){
             files.append(filesInfo[c].absoluteFilePath());
         }
-        if (AddFiles(files, dir) == -1)
+        if (AddFiles(files, newdir) == -1)
           break;
     }
     if (dirs.size() != 0){
@@ -409,7 +397,7 @@ int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
                     }
                     else{
                         QString crnam = "%1~%2~";
-                        fname = crnam.arg(rnam->getName()).arg(rnam->getType()).toStdString();
+                        fname = crnam.arg(rnam->getName(), rnam->getType()).toStdString();
                         break;
                     }
                 }
@@ -521,7 +509,7 @@ void MainWindow::Copy(){
         if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0)
             return;
         bool selpar = 0;
-        for (int t = 0; t< called.size(); t+=6){
+        for (int t = 0; t < called.size(); t+=6){
             if (inodeon[acdisk][called[t]->row()]==0){
                 selpar = 1;
                 break;
@@ -542,7 +530,7 @@ void MainWindow::Copy(){
                             QString("Requires %1 bytes of additional disk space to copy").arg(needs-free));
             return;
         }
-        for (int t = 0; t< called.size(); t+=6){
+        for (int t = 0; t < called.size(); t+=6){
             if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()])) {
@@ -555,26 +543,19 @@ void MainWindow::Copy(){
                 char newname[CCOS_MAX_FILE_NAME];
                 memset(newname, 0, CCOS_MAX_FILE_NAME);
                 ccos_parse_file_name(inodeon[acdisk][called[t]->row()], newname, NULL, NULL, NULL);
-                ccos_create_dir(ccos_get_root_dir(dat[!acdisk], siz[!acdisk]), newname,
+                ccos_inode_t* newdir = ccos_create_dir(ccos_get_root_dir(dat[!acdisk], siz[!acdisk]), newname,
                         dat[!acdisk], siz[!acdisk]);
+                if (newdir == NULL){
+                            QMessageBox errBox;
+                            errBox.critical(0,"Failed to create folder",
+                                            "Program can't create a folder in the image!");
+                            return;
+                }
                 uint16_t fils = 0;
                 ccos_inode_t** dirdata = NULL;
-                ccos_get_dir_contents(ccos_get_root_dir(dat[!acdisk], siz[!acdisk]),
-                        dat[!acdisk], &fils, &dirdata);
-                ccos_inode_t* newdir;
-                for (int c = 0; c < fils; c++) {
-                    char created[CCOS_MAX_FILE_NAME];
-                    memset(created, 0, CCOS_MAX_FILE_NAME);
-                    ccos_parse_file_name(dirdata[c], created, NULL, NULL, NULL);
-                    if (strcmp(created, newname) == 0 )
-                        newdir = dirdata[c];
-                }
-                fils = 0;
-                dirdata = NULL;
                 ccos_get_dir_contents(inodeon[acdisk][called[t]->row()], dat[acdisk], &fils, &dirdata);
                 for (int c = 0; c < fils; c++)
-                    ccos_copy_file(dat[!acdisk], siz[!acdisk], newdir, dat[acdisk],
-                            dirdata[c]);
+                    ccos_copy_file(dat[!acdisk], siz[!acdisk], newdir, dat[acdisk], dirdata[c]);
             }
             else {
                 if (ccos_file_id(curdir[!acdisk]) == ccos_file_id(ccos_get_root_dir(dat[!acdisk], siz[!acdisk]))) {
@@ -774,7 +755,7 @@ void MainWindow::MakeDir(){
             return;
         }
         ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
-        if (ccos_create_dir(root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]) == -1){
+        if (ccos_create_dir(root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]) == NULL){
             QMessageBox errBox;
             errBox.critical(0,"Failed to create folder",
                             "Program can't create a folder in the image!");
@@ -841,7 +822,7 @@ void  MainWindow::Rename(){
         rnam = new RenDlg(this);
         rnam->setName(basename);
         rnam->setType(type);
-        rnam->setInfo((QString("Set new name and type for %1~%2~:").arg(basename).arg(type)));
+        rnam->setInfo((QString("Set new name and type for %1~%2~:").arg(basename, type)));
         if (ccos_is_dir(reninode)){
             rnam->lockType(1);
         }
