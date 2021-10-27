@@ -330,6 +330,17 @@
                  </font>
                 </property>
                </column>
+               <column>
+                <property name="text">
+                 <string>Expires</string>
+                </property>
+                <property name="font">
+                 <font>
+                  <weight>75</weight>
+                  <bold>true</bold>
+                 </font>
+                </property>
+               </column>
               </widget>
              </item>
             </layout>
@@ -454,6 +465,17 @@
                  </font>
                 </property>
                </column>
+               <column>
+                <property name="text">
+                 <string>Expires</string>
+                </property>
+                <property name="font">
+                 <font>
+                  <weight>75</weight>
+                  <bold>true</bold>
+                 </font>
+                </property>
+               </column>
               </widget>
              </item>
             </layout>
@@ -486,7 +508,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>23</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

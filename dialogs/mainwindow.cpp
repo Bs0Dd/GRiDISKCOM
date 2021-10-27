@@ -18,10 +18,11 @@ struct stat info;
 //*Get file version and convert to QString ("A.B.C")
 QString ccosGetFileVersionQstr(ccos_inode_t* file) {
     version_t ver = ccos_get_file_version(file);
-    return QString("%1.%2.%3").arg(ver.major).arg(ver.minor).arg(ver.patch);
+    return QString("%1.%2.%3").arg(QString::number(ver.major), QString::number(ver.minor),
+                                   QString::number(ver.patch));
 }
 
-//*Convert data ("YYYY/MM/DD")
+//*Convert date ("YYYY/MM/DD")
 QString ccosDateToQstr(ccos_date_t date) {
     QString mzero = "";
     QString dzero = "";
@@ -29,8 +30,9 @@ QString ccosDateToQstr(ccos_date_t date) {
         mzero = "0";
     if (date.day < 10)
         dzero = "0";
-    QString qdat = "%1/%2%3/%4%5";
-    qdat = qdat.arg(date.year).arg(mzero).arg(date.month).arg(dzero).arg(date.day);
+    QString qdat = "%3/%1%4/%2%5";
+    qdat = qdat.arg(mzero, dzero, QString::number(date.year), QString::number(date.month),
+                    QString::number(date.day));
     return qdat;
 }
 
@@ -134,24 +136,12 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
     for(int row= tableWidget->rowCount(); 0<=row; row--)
         tableWidget-> removeRow(row);
     char* labd = ccos_get_image_label(dat, siz);
-    if (strlen(labd) == 0){
-        if (isch[curdisk] == 0)
-            msg = "Disk %1 - No label";
-        else
-            msg = "Disk %1 - No label*";
-        box->setTitle(msg.arg(disk));
-    }
-    else{
-        if (isch[curdisk] == 0)
-            msg = "Disk %1 - %2";
-        else
-            msg = "Disk %1 - %2*";
-        box->setTitle(msg.arg(disk, labd));
-    }
+    msg = "Disk %1 - %2%3";
+    box->setTitle(msg.arg(disk, (strlen(labd) != 0) ? labd : "No label", isch[curdisk] ? "*" : ""));
     char basename[CCOS_MAX_FILE_NAME];
     char type[CCOS_MAX_FILE_NAME];
     int fcount = 0;
-    QTableWidgetItem *tFname, *tType, *tSize, *tVer, *tCreate, *tMod;
+    QTableWidgetItem *tFname, *tType, *tSize, *tVer, *tCreate, *tMod, *tExp;
     if (noRoot == 1){
         tFname = new QTableWidgetItem();
         tType = new QTableWidgetItem();
@@ -159,6 +149,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
         tVer = new QTableWidgetItem();
         tCreate = new QTableWidgetItem();
         tMod = new QTableWidgetItem();
+        tExp = new QTableWidgetItem();
         tFname->setText("..");
         tFname->setFlags(tFname->flags() ^ Qt::ItemIsEditable);
         tType->setText("<PARENT-DIR>");
@@ -167,6 +158,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
         tVer->setFlags(tVer->flags() ^ Qt::ItemIsEditable);
         tCreate->setFlags(tCreate->flags() ^ Qt::ItemIsEditable);
         tMod->setFlags(tMod->flags() ^ Qt::ItemIsEditable);
+        tExp->setFlags(tExp->flags() ^ Qt::ItemIsEditable);
         tableWidget->insertRow(0);
         tableWidget->setItem(0, 0, tFname);
         tableWidget->setItem(0, 1, tType);
@@ -174,6 +166,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
         tableWidget->setItem(0, 3, tVer);
         tableWidget->setItem(0, 4, tCreate);
         tableWidget->setItem(0, 5, tMod);
+        tableWidget->setItem(0, 6, tExp);
         inodeon[curdisk].insert(inodeon[curdisk].begin(), 0);
         fcount = 1;
     }
@@ -187,6 +180,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
         tVer = new QTableWidgetItem();
         tCreate = new QTableWidgetItem();
         tMod = new QTableWidgetItem();
+        tExp = new QTableWidgetItem();
         tFname->setText(basename);
         tFname->setFlags(tFname->flags() ^ Qt::ItemIsEditable);
         tType->setText(type);
@@ -203,6 +197,8 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
         tCreate->setFlags(tCreate->flags() ^ Qt::ItemIsEditable);
         tMod->setText(ccosDateToQstr(ccos_get_mod_date(dirdata[c])));
         tMod->setFlags(tMod->flags() ^ Qt::ItemIsEditable);
+        tExp->setText(ccosDateToQstr(ccos_get_exp_date(dirdata[c])));
+        tExp->setFlags(tExp->flags() ^ Qt::ItemIsEditable);
         if (ccos_is_dir(dirdata[c])){
             inodeon[curdisk].insert(inodeon[curdisk].begin() + fcount, dirdata[c]);
             tableWidget->insertRow(fcount);
@@ -212,6 +208,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
             tableWidget->setItem(fcount, 3, tVer);
             tableWidget->setItem(fcount, 4, tCreate);
             tableWidget->setItem(fcount, 5, tMod);
+            tableWidget->setItem(fcount, 6, tExp);
             fcount++;
         }
         else{
@@ -224,6 +221,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
             tableWidget->setItem(row, 3, tVer);
             tableWidget->setItem(row, 4, tCreate);
             tableWidget->setItem(row, 5, tMod);
+            tableWidget->setItem(row, 6, tExp);
         }
     }
     size_t free_space = ccos_calc_free_space(dat, siz);
@@ -235,6 +233,18 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
     }
 
     free(dirdata);
+}
+
+//*Ask if user wants to save a file
+int saveBox(QString disk){
+    QMessageBox msgBox;
+    msgBox.setIcon(QMessageBox::Question);
+    msgBox.setText(QString("The Disk %1 has been modified.").arg(disk));
+    msgBox.setInformativeText("Do you want to save your changes?");
+    msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+    msgBox.setDefaultButton(QMessageBox::Save);
+    int ret = msgBox.exec();
+    return ret == QMessageBox::Save ? 1 : ret == QMessageBox::Discard ? -1 : 0;
 }
 //[Service functions]
 
@@ -253,11 +263,13 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tableWidget->horizontalHeader()->resizeSection(3, 45);
     ui->tableWidget->horizontalHeader()->resizeSection(4, 80);
     ui->tableWidget->horizontalHeader()->resizeSection(5, 80);
+    ui->tableWidget->horizontalHeader()->resizeSection(6, 80);
     ui->tableWidget_2->horizontalHeader()->resizeSection(0, 155);
     ui->tableWidget_2->horizontalHeader()->resizeSection(2, szcor);
     ui->tableWidget_2->horizontalHeader()->resizeSection(3, 45);
     ui->tableWidget_2->horizontalHeader()->resizeSection(4, 80);
     ui->tableWidget_2->horizontalHeader()->resizeSection(5, 80);
+    ui->tableWidget_2->horizontalHeader()->resizeSection(6, 80);
     addEmpty(0, ui->tableWidget);
     addEmpty(0, ui->tableWidget_2);
     QFont diskfont;
@@ -420,52 +432,36 @@ int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    QMessageBox msgBox;
-    msgBox.setIcon(QMessageBox::Question);
-    msgBox.setInformativeText("Do you want to save your changes?");
-    msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
-    msgBox.setDefaultButton(QMessageBox::Save);
     bool backdstat = acdisk;
     if (isch[0] == 1){
-        msgBox.setText("The Disk I has been modified.");
-        int ret = msgBox.exec();
-        if (ret == QMessageBox::Save){
+        int ret = saveBox("I");
+        if (ret == 1){
             acdisk = 0;
             MainWindow::Save();
             acdisk = backdstat;
         }
-        else if (ret == QMessageBox::Cancel)
+        else if (ret == 0)
             event->ignore();
     }
     if (isch[1] == 1){
-        msgBox.setText("The Disk II has been modified.");
-        int ret = msgBox.exec();
-        if (ret == QMessageBox::Save){
+        int ret = saveBox("II");
+        if (ret == 1){
             acdisk = 1;
             MainWindow::Save();
             acdisk = backdstat;
         }
-        else if (ret == QMessageBox::Cancel)
+        else if (ret == 0)
             event->ignore();
     }
 }
 
 int MainWindow::CloseImg(){
     if (isch[acdisk] == 1){
-        QMessageBox msgBox;
-        msgBox.setIcon(QMessageBox::Question);
-        msgBox.setInformativeText("Do you want to save your changes?");
-        msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
-        msgBox.setDefaultButton(QMessageBox::Save);
-        if (acdisk == 0)
-            msgBox.setText("The Disk I has been modified.");
-        else
-            msgBox.setText("The Disk II has been modified.");
-        int ret = msgBox.exec();
-        if (ret == QMessageBox::Save)
+        int ret = saveBox((acdisk == 0) ? "I" : "II");
+        if (ret == 1)
             MainWindow::Save();
-        else if (ret == QMessageBox::Cancel)
-            return -1;
+        else if (ret == 0)
+            return 0;
     }
 
     QTableWidget* tableWidget;
@@ -489,10 +485,10 @@ int MainWindow::CloseImg(){
         ui->label_2->setText("Free space:");
         ui->groupBox_2->setTitle("Disk II - No disk");
     }
-    for(int row= tableWidget->rowCount(); 0<=row; row--)
+    for(int row = tableWidget->rowCount(); 0<=row; row--)
         tableWidget-> removeRow(row);
     addEmpty(0, tableWidget);
-    return 0;
+    return 1;
 }
 
 void MainWindow::Copy(){
@@ -712,7 +708,7 @@ void MainWindow::Label(){
 
 void MainWindow::LoadImg(QString path){
     if (dat[acdisk] != nullptr)
-        if (CloseImg() == -1) return;
+        if (!CloseImg()) return;
 
     read_file(path.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
     if (path == "")
@@ -795,7 +791,9 @@ void MainWindow::OpenDir(){
 
 void MainWindow::OpenImg(){
     QString Qname = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img)");
-    LoadImg(Qname);
+    //QString Qname = "/home/bs0dd/Pobrane/MODIF.img";
+    if (Qname != "")
+        LoadImg(Qname);
 }
 
 void  MainWindow::Rename(){
