@@ -500,7 +500,7 @@ void MainWindow::Copy(){
         if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0)
             return;
         bool selpar = 0;
-        for (int t = 0; t < called.size(); t+=6){
+        for (int t = 0; t < called.size(); t+=7){
             if (inodeon[acdisk][called[t]->row()]==0){
                 selpar = 1;
                 break;
@@ -521,7 +521,7 @@ void MainWindow::Copy(){
                             QString("Requires %1 bytes of additional disk space to copy").arg(needs-free));
             return;
         }
-        for (int t = 0; t < called.size(); t+=6){
+        for (int t = 0; t < called.size(); t+=7){
             if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()])) {
@@ -605,7 +605,7 @@ void MainWindow::Delete(){
         if (called.size() == 6 and inodeon[acdisk][called[0]->row()]==0)
             return;
         bool selpar = 0;
-        for (int t = 0; t< called.size(); t+=6){
+        for (int t = 0; t< called.size(); t+=7){
             if (inodeon[acdisk][called[t]->row()]==0){
                 selpar = 1;
                 break;
@@ -618,7 +618,7 @@ void MainWindow::Delete(){
         int ret = msgBox.exec();
         if (ret != QMessageBox::Yes)
             return;
-        for (int t = 0; t< called.size(); t+=6){
+        for (int t = 0; t< called.size(); t+=7){
             if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
             ccos_delete_file(dat[acdisk], siz[acdisk], inodeon[acdisk][called[t]->row()]);
@@ -681,7 +681,7 @@ void MainWindow::Extract(){
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
         if (todir == "")
             return;
-        for (int t = 0; t < called.size(); t+=6){
+        for (int t = 0; t < called.size(); t+=7){
             if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()]))
