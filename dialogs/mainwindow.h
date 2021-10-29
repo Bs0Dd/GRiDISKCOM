@@ -11,7 +11,9 @@
 #include <fstream>
 #include "ui_mainwindow.h"
 #include "abdlg.h"
+#include "datedlg.h"
 #include "rendlg.h"
+#include "verdlg.h"
 #include "sys/stat.h"
 
 extern "C"{ //Include for ccos_inode_t type
@@ -43,6 +45,7 @@ public slots:
     void closeEvent(QCloseEvent *event);
     int  CloseImg();
     void Copy();
+    void Date();
     void dragEnterEvent(QDragEnterEvent *event);
     void dropEvent(QDropEvent* event);
     void Delete();
@@ -57,6 +60,7 @@ public slots:
     void Rename();
     void Save();
     void SaveAs();
+    void Version();
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
@@ -68,7 +72,9 @@ public:
 private:
     Ui::MainWindow *ui;
     AbDlg *abss;
+    DateDlg *datd;
     RenDlg *rnam;
+    VerDlg *vdlg;
     qint8 focused;
     void setFocused(qint8 focused);
 };

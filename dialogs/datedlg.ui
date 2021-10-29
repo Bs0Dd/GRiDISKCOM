@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>RenDlg</class>
- <widget class="QDialog" name="RenDlg">
+ <class>DateDlg</class>
+ <widget class="QDialog" name="DateDlg">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>383</width>
+    <width>370</width>
     <height>216</height>
    </rect>
   </property>
@@ -18,13 +18,13 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>383</width>
+    <width>370</width>
     <height>216</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>383</width>
+    <width>370</width>
     <height>216</height>
    </size>
   </property>
@@ -34,7 +34,7 @@
    </font>
   </property>
   <property name="windowTitle">
-   <string>Set name</string>
+   <string>Set date</string>
   </property>
   <property name="windowIcon">
    <iconset resource="../icon/icon.qrc">
@@ -43,7 +43,7 @@
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
     <rect>
-     <x>30</x>
+     <x>20</x>
      <y>170</y>
      <width>341</width>
      <height>32</height>
@@ -72,53 +72,126 @@
     </font>
    </property>
    <property name="text">
-    <string>%no_text#$contact_aperture_science@@*%</string>
+    <string>Specify the dates for the file %1:</string>
    </property>
    <property name="wordWrap">
     <bool>true</bool>
    </property>
   </widget>
-  <widget class="QLineEdit" name="lineEdit">
+  <widget class="QDateEdit" name="expBox">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>80</y>
-     <width>341</width>
-     <height>25</height>
+     <x>260</x>
+     <y>110</y>
+     <width>91</width>
+     <height>22</height>
     </rect>
    </property>
    <property name="font">
     <font>
      <family>Sans Serif</family>
-     <pointsize>9</pointsize>
+     <pointsize>8</pointsize>
     </font>
+   </property>
+   <property name="specialValueText">
+    <string>00.00.0000</string>
+   </property>
+   <property name="dateTime">
+    <datetime>
+     <hour>0</hour>
+     <minute>0</minute>
+     <second>0</second>
+     <year>1752</year>
+     <month>9</month>
+     <day>14</day>
+    </datetime>
+   </property>
+   <property name="calendarPopup">
+    <bool>true</bool>
    </property>
   </widget>
-  <widget class="QLineEdit" name="lineEdit_2">
+  <widget class="QDateEdit" name="modBox">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>130</y>
-     <width>341</width>
-     <height>25</height>
+     <x>140</x>
+     <y>110</y>
+     <width>91</width>
+     <height>22</height>
     </rect>
    </property>
    <property name="font">
     <font>
      <family>Sans Serif</family>
-     <pointsize>9</pointsize>
+     <pointsize>8</pointsize>
     </font>
    </property>
-   <property name="text">
-    <string/>
+   <property name="specialValueText">
+    <string>00.00.0000</string>
+   </property>
+   <property name="dateTime">
+    <datetime>
+     <hour>0</hour>
+     <minute>0</minute>
+     <second>0</second>
+     <year>1752</year>
+     <month>9</month>
+     <day>14</day>
+    </datetime>
+   </property>
+   <property name="calendarPopup">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QDateEdit" name="creBox">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>110</y>
+     <width>91</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Sans Serif</family>
+     <pointsize>8</pointsize>
+    </font>
+   </property>
+   <property name="specialValueText">
+    <string>00.00.0000</string>
+   </property>
+   <property name="dateTime">
+    <datetime>
+     <hour>0</hour>
+     <minute>0</minute>
+     <second>0</second>
+     <year>1752</year>
+     <month>9</month>
+     <day>14</day>
+    </datetime>
+   </property>
+   <property name="calendarPopup">
+    <bool>true</bool>
+   </property>
+   <property name="timeSpec">
+    <enum>Qt::LocalTime</enum>
    </property>
   </widget>
   <widget class="QLabel" name="label_2">
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>60</y>
-     <width>67</width>
+     <y>80</y>
+     <width>91</width>
      <height>17</height>
     </rect>
    </property>
@@ -129,15 +202,15 @@
     </font>
    </property>
    <property name="text">
-    <string>Name:</string>
+    <string>Created</string>
    </property>
   </widget>
   <widget class="QLabel" name="label_3">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>110</y>
-     <width>67</width>
+     <x>140</x>
+     <y>80</y>
+     <width>91</width>
      <height>17</height>
     </rect>
    </property>
@@ -148,7 +221,26 @@
     </font>
    </property>
    <property name="text">
-    <string>Type:</string>
+    <string>Modificated</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_4">
+   <property name="geometry">
+    <rect>
+     <x>260</x>
+     <y>80</y>
+     <width>91</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Sans Serif</family>
+     <pointsize>9</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>Expires</string>
    </property>
   </widget>
  </widget>
@@ -159,7 +251,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>RenDlg</receiver>
+   <receiver>DateDlg</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -175,7 +267,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>RenDlg</receiver>
+   <receiver>DateDlg</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

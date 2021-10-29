@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>RenDlg</class>
- <widget class="QDialog" name="RenDlg">
+ <class>VerDlg</class>
+ <widget class="QDialog" name="VerDlg">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>383</width>
+    <width>250</width>
     <height>216</height>
    </rect>
   </property>
@@ -16,15 +16,9 @@
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
-  <property name="minimumSize">
-   <size>
-    <width>383</width>
-    <height>216</height>
-   </size>
-  </property>
   <property name="maximumSize">
    <size>
-    <width>383</width>
+    <width>370</width>
     <height>216</height>
    </size>
   </property>
@@ -34,7 +28,7 @@
    </font>
   </property>
   <property name="windowTitle">
-   <string>Set name</string>
+   <string>Set version</string>
   </property>
   <property name="windowIcon">
    <iconset resource="../icon/icon.qrc">
@@ -43,9 +37,9 @@
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
     <rect>
-     <x>30</x>
+     <x>20</x>
      <y>170</y>
-     <width>341</width>
+     <width>221</width>
      <height>32</height>
     </rect>
    </property>
@@ -59,9 +53,9 @@
   <widget class="QLabel" name="label">
    <property name="geometry">
     <rect>
-     <x>20</x>
+     <x>10</x>
      <y>10</y>
-     <width>351</width>
+     <width>231</width>
      <height>41</height>
     </rect>
    </property>
@@ -72,53 +66,18 @@
     </font>
    </property>
    <property name="text">
-    <string>%no_text#$contact_aperture_science@@*%</string>
+    <string>Specify the version for the file %1:</string>
    </property>
    <property name="wordWrap">
     <bool>true</bool>
-   </property>
-  </widget>
-  <widget class="QLineEdit" name="lineEdit">
-   <property name="geometry">
-    <rect>
-     <x>20</x>
-     <y>80</y>
-     <width>341</width>
-     <height>25</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <family>Sans Serif</family>
-     <pointsize>9</pointsize>
-    </font>
-   </property>
-  </widget>
-  <widget class="QLineEdit" name="lineEdit_2">
-   <property name="geometry">
-    <rect>
-     <x>20</x>
-     <y>130</y>
-     <width>341</width>
-     <height>25</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <family>Sans Serif</family>
-     <pointsize>9</pointsize>
-    </font>
-   </property>
-   <property name="text">
-    <string/>
    </property>
   </widget>
   <widget class="QLabel" name="label_2">
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>60</y>
-     <width>67</width>
+     <y>80</y>
+     <width>51</width>
      <height>17</height>
     </rect>
    </property>
@@ -129,15 +88,15 @@
     </font>
    </property>
    <property name="text">
-    <string>Name:</string>
+    <string>Major</string>
    </property>
   </widget>
   <widget class="QLabel" name="label_3">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>110</y>
-     <width>67</width>
+     <x>100</x>
+     <y>80</y>
+     <width>51</width>
      <height>17</height>
     </rect>
    </property>
@@ -148,7 +107,83 @@
     </font>
    </property>
    <property name="text">
-    <string>Type:</string>
+    <string>Minor</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_4">
+   <property name="geometry">
+    <rect>
+     <x>180</x>
+     <y>80</y>
+     <width>41</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Sans Serif</family>
+     <pointsize>9</pointsize>
+    </font>
+   </property>
+   <property name="text">
+    <string>Patch</string>
+   </property>
+  </widget>
+  <widget class="QSpinBox" name="major">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>110</y>
+     <width>51</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Sans Serif</family>
+     <pointsize>9</pointsize>
+    </font>
+   </property>
+   <property name="maximum">
+    <number>255</number>
+   </property>
+  </widget>
+  <widget class="QSpinBox" name="minor">
+   <property name="geometry">
+    <rect>
+     <x>100</x>
+     <y>110</y>
+     <width>51</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Sans Serif</family>
+     <pointsize>9</pointsize>
+    </font>
+   </property>
+   <property name="maximum">
+    <number>255</number>
+   </property>
+  </widget>
+  <widget class="QSpinBox" name="patch">
+   <property name="geometry">
+    <rect>
+     <x>180</x>
+     <y>110</y>
+     <width>51</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Sans Serif</family>
+     <pointsize>9</pointsize>
+    </font>
+   </property>
+   <property name="maximum">
+    <number>255</number>
    </property>
   </widget>
  </widget>
@@ -159,7 +194,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>RenDlg</receiver>
+   <receiver>VerDlg</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -175,7 +210,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>RenDlg</receiver>
+   <receiver>VerDlg</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

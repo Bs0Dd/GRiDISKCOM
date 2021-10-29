@@ -22,18 +22,18 @@ QString ccosGetFileVersionQstr(ccos_inode_t* file) {
                                    QString::number(ver.patch));
 }
 
-//*Convert date ("YYYY/MM/DD")
+//*Convert date ("dd.MM.yyyy")
 QString ccosDateToQstr(ccos_date_t date) {
-    QString mzero = "";
-    QString dzero = "";
-    if (date.month < 10)
-        mzero = "0";
-    if (date.day < 10)
-        dzero = "0";
-    QString qdat = "%3/%1%4/%2%5";
-    qdat = qdat.arg(mzero, dzero, QString::number(date.year), QString::number(date.month),
-                    QString::number(date.day));
-    return qdat;
+    QString day = QString::number(date.day);
+    QString month = QString::number(date.month);
+    QString year = QString::number(date.year);
+    while (day.size() < 2)
+        day = "0" + day;
+    while (month.size() < 2)
+        month = "0" + month;
+    while (year.size() < 4)
+        year = "0" + year;
+    return QString("%1.%2.%3").arg(day, month, year);
 }
 
 //*Insert "<EMPTY>" or "<EMPTY IMAGE>" table item to widget
@@ -142,7 +142,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
     char type[CCOS_MAX_FILE_NAME];
     int fcount = 0;
     QTableWidgetItem *tFname, *tType, *tSize, *tVer, *tCreate, *tMod, *tExp;
-    if (noRoot == 1){
+    if (noRoot){
         tFname = new QTableWidgetItem();
         tType = new QTableWidgetItem();
         tSize = new QTableWidgetItem();
@@ -257,21 +257,20 @@ MainWindow::MainWindow(QWidget *parent)
 
     trace_init(0); //Set this to 1 for debug trace
 
+
     QMainWindow::setWindowTitle(QString("GRiDISK Commander ")+_PVER_);
-    ui->tableWidget->horizontalHeader()->resizeSection(0, 155);
-    ui->tableWidget->horizontalHeader()->resizeSection(2, szcor);
-    ui->tableWidget->horizontalHeader()->resizeSection(3, 45);
-    ui->tableWidget->horizontalHeader()->resizeSection(4, 80);
-    ui->tableWidget->horizontalHeader()->resizeSection(5, 80);
-    ui->tableWidget->horizontalHeader()->resizeSection(6, 80);
-    ui->tableWidget_2->horizontalHeader()->resizeSection(0, 155);
-    ui->tableWidget_2->horizontalHeader()->resizeSection(2, szcor);
-    ui->tableWidget_2->horizontalHeader()->resizeSection(3, 45);
-    ui->tableWidget_2->horizontalHeader()->resizeSection(4, 80);
-    ui->tableWidget_2->horizontalHeader()->resizeSection(5, 80);
-    ui->tableWidget_2->horizontalHeader()->resizeSection(6, 80);
-    addEmpty(0, ui->tableWidget);
-    addEmpty(0, ui->tableWidget_2);
+    QTableWidget* twig[] = {ui->tableWidget, ui->tableWidget_2};
+    for (int i = 0; i < 2; i++){
+        twig[i]->horizontalHeader()->resizeSection(0, 155);
+        twig[i]->horizontalHeader()->resizeSection(2, szcor);
+        twig[i]->horizontalHeader()->resizeSection(3, 80);
+        twig[i]->horizontalHeader()->resizeSection(4, 80);
+        twig[i]->horizontalHeader()->resizeSection(5, 80);
+        twig[i]->horizontalHeader()->resizeSection(6, 80);
+        addEmpty(0, twig[i]);
+        twig[i]->verticalHeader()->hide();
+        twig[i]->setSelectionBehavior(QAbstractItemView::SelectRows);
+    }
     QFont diskfont;
     diskfont.setFamily(QString::fromUtf8("Arial"));
     diskfont.setPointSize(9);
@@ -280,15 +279,9 @@ MainWindow::MainWindow(QWidget *parent)
     diskfont.setBold(true);
     ui->groupBox->setFont(diskfont);
     ui->tableWidget->setFont(diskfont);
-    ui->groupBox_2->setFont(diskfont);
-    ui->tableWidget_2->setFont(diskfont);
     diskfont.setBold(false);
     ui->groupBox_2->setFont(diskfont);
     ui->tableWidget_2->setFont(diskfont);
-    ui->tableWidget->verticalHeader()->hide();
-    ui->tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
-    ui->tableWidget_2->verticalHeader()->hide();
-    ui->tableWidget_2->setSelectionBehavior(QAbstractItemView::SelectRows);
     //  Buttons connecting
     connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(OpenImg()));
     connect(ui->pushButton_2, SIGNAL(clicked()), this, SLOT(CloseImg()));
@@ -303,7 +296,9 @@ MainWindow::MainWindow(QWidget *parent)
     //  Context menus connecting
     connect(ui->actionAdd, SIGNAL(triggered()), this, SLOT(Add()));
     connect(ui->actionAbout, SIGNAL(triggered()), this, SLOT(AboutShow()));
+    connect(ui->actionChange_date, SIGNAL(triggered()), this, SLOT(Date()));
     connect(ui->actionChange_label, SIGNAL(triggered()), this, SLOT(Label()));
+    connect(ui->actionChange_version, SIGNAL(triggered()), this, SLOT(Version()));
     connect(ui->actionClose, SIGNAL(triggered()), this, SLOT(CloseImg()));
     connect(ui->actionCopy, SIGNAL(triggered()), this, SLOT(Copy()));
     connect(ui->actionDelete, SIGNAL(triggered()), this, SLOT(Delete()));
@@ -328,7 +323,7 @@ void MainWindow::AboutShow(){
 
 void MainWindow::Add(){
     QMessageBox msgBox;
-    if (isop[acdisk] == 1){
+    if (isop[acdisk]){
         if (nrot[acdisk] == 0){
             msgBox.information(this, tr("Add file(s)"),
                                tr("GRiD supports files only in directories!"));
@@ -433,7 +428,7 @@ int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     bool backdstat = acdisk;
-    if (isch[0] == 1){
+    if (isch[0]){
         int ret = saveBox("I");
         if (ret == 1){
             acdisk = 0;
@@ -443,7 +438,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         else if (ret == 0)
             event->ignore();
     }
-    if (isch[1] == 1){
+    if (isch[1]){
         int ret = saveBox("II");
         if (ret == 1){
             acdisk = 1;
@@ -456,7 +451,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 }
 
 int MainWindow::CloseImg(){
-    if (isch[acdisk] == 1){
+    if (isch[acdisk]){
         int ret = saveBox((acdisk == 0) ? "I" : "II");
         if (ret == 1)
             MainWindow::Save();
@@ -493,9 +488,9 @@ int MainWindow::CloseImg(){
 
 void MainWindow::Copy(){
     QTableWidget* tw;
-    if (isop[acdisk] == 1 and isop[!acdisk] == 1){
+    if (isop[acdisk] and isop[!acdisk]){
         QMessageBox msgBox;
-        if (acdisk ==0)
+        if (acdisk == 0)
             tw= ui->tableWidget;
         else
             tw= ui->tableWidget_2;
@@ -570,11 +565,37 @@ void MainWindow::Copy(){
     }
 }
 
+void MainWindow::Date(){
+    if (isop[acdisk]){
+        QTableWidget* tw;
+        if (acdisk == 0)
+            tw= ui->tableWidget;
+        else
+            tw= ui->tableWidget_2;
+        ccos_inode_t* file = inodeon[acdisk][tw->currentItem()->row()];
+        if (file != 0){
+            ccos_date_t cre = ccos_get_creation_date(file);
+            ccos_date_t mod = ccos_get_mod_date(file);
+            ccos_date_t exp = ccos_get_exp_date(file);
+            datd = new DateDlg(this);
+            datd->init(file->name, cre, mod, exp);
+            if (datd->exec()){
+                datd->retDates(&cre, &mod, &exp);
+                ccos_set_creation_date(file, cre);
+                ccos_set_mod_date(file, mod);
+                ccos_set_exp_date(file, exp);
+                isch[acdisk] = 1;
+                fillTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+            }
+        }
+    }
+}
+
 void MainWindow::Delete(){
     QTableWidget* tw;
-    if (isop[acdisk] == 1){
+    if (isop[acdisk]){
         QMessageBox msgBox;
-        if (acdisk ==0)
+        if (acdisk == 0)
             tw= ui->tableWidget;
         else
             tw= ui->tableWidget_2;
@@ -646,8 +667,8 @@ void MainWindow::dropEvent(QDropEvent* event){
 
 void MainWindow::Extract(){
     QTableWidget* tw;
-    if (isop[acdisk] == 1){
-        if (acdisk ==0)
+    if (isop[acdisk]){
+        if (acdisk == 0)
             tw= ui->tableWidget;
         else
             tw= ui->tableWidget_2;
@@ -660,7 +681,7 @@ void MainWindow::Extract(){
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
         if (todir == "")
             return;
-        for (int t = 0; t< called.size(); t+=6){
+        for (int t = 0; t < called.size(); t+=6){
             if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()]))
@@ -673,7 +694,7 @@ void MainWindow::Extract(){
 }
 
 void MainWindow::ExtractAll(){
-    if (isop[acdisk] == 1){
+    if (isop[acdisk]){
         QString todir = QFileDialog::getExistingDirectory(this, tr("Extract all to"), "",
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
         if (todir == "")
@@ -689,7 +710,7 @@ void MainWindow::focusChanged(QWidget *, QWidget *now)
 }
 
 void MainWindow::Label(){
-    if (isop[acdisk] == 1){
+    if (isop[acdisk]){
         QString dsk;
         if (acdisk == 0)
             dsk= "I";
@@ -732,8 +753,8 @@ void MainWindow::LoadImg(QString path){
 }
 
 void MainWindow::MakeDir(){
-    if (isop[acdisk] == 1){
-        if (nrot[acdisk] == 1){
+    if (isop[acdisk]){
+        if (nrot[acdisk]){
             QMessageBox msgBox;
             msgBox.information(0,"Make dir",
                                "GRiD supports directories only in root!");
@@ -764,8 +785,8 @@ void MainWindow::MakeDir(){
 
 void MainWindow::OpenDir(){
     QTableWidget* tw;
-    if (isop[acdisk] == 1){
-        if (acdisk ==0)
+    if (isop[acdisk]){
+        if (acdisk == 0)
             tw= ui->tableWidget;
         else
             tw= ui->tableWidget_2;
@@ -774,7 +795,7 @@ void MainWindow::OpenDir(){
         dir = inodeon[acdisk][called->row()];
         if (dir == 0 and nrot[acdisk]== 0)
             return;
-        if (called -> row() == 0 and nrot[acdisk]== 1){
+        if (called -> row() == 0 and nrot[acdisk]){
             ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
             curdir[acdisk] = (ccos_get_parent_dir(curdir[acdisk], dat[acdisk]));
             if (curdir[acdisk] == root)
@@ -797,7 +818,7 @@ void MainWindow::OpenImg(){
 }
 
 void  MainWindow::Rename(){
-    if (isop[acdisk] == 1){
+    if (isop[acdisk]){
         ccos_inode_t* reninode;
         if (acdisk == 0){
             if (ui->tableWidget->currentRow() == -1)
@@ -820,7 +841,7 @@ void  MainWindow::Rename(){
         rnam = new RenDlg(this);
         rnam->setName(basename);
         rnam->setType(type);
-        rnam->setInfo((QString("Set new name and type for %1~%2~:").arg(basename, type)));
+        rnam->setInfo((QString("Set new name and type for %1:").arg(reninode->name)));
         if (ccos_is_dir(reninode)){
             rnam->lockType(1);
         }
@@ -850,8 +871,8 @@ void  MainWindow::Rename(){
 
 void MainWindow::Save(){
     QGroupBox* gb;
-    if (isch[acdisk] == 1){
-        if (acdisk ==0)
+    if (isch[acdisk]){
+        if (acdisk == 0)
             gb= ui->groupBox;
         else
             gb= ui->groupBox_2;
@@ -863,8 +884,8 @@ void MainWindow::Save(){
 
 void MainWindow::SaveAs(){
     QGroupBox* gb;
-    if (isop[acdisk] == 1){
-        if (acdisk ==0)
+    if (isop[acdisk]){
+        if (acdisk == 0)
             gb= ui->groupBox;
         else
             gb= ui->groupBox_2;
@@ -873,7 +894,7 @@ void MainWindow::SaveAs(){
             return;
         save_image(nameQ.toStdString().c_str(), dat[acdisk], siz[acdisk], true);
         name[acdisk] = nameQ;
-        if (isch[acdisk] == 1){
+        if (isch[acdisk]){
             gb->setTitle(gb->title().left(gb->title().size()-1));
             isch[acdisk] = 0;
         }
@@ -893,6 +914,28 @@ void MainWindow::setFocused(qint8 focused){
     font.setBold(focused);
     ui->groupBox_2->setFont(font);
     ui->tableWidget_2->setFont(font);
+}
+
+void MainWindow::Version(){
+    if (isop[acdisk]){
+        QTableWidget* tw;
+        if (acdisk == 0)
+            tw= ui->tableWidget;
+        else
+            tw= ui->tableWidget_2;
+        ccos_inode_t* file = inodeon[acdisk][tw->currentItem()->row()];
+        if (file != 0){
+            version_t ver = ccos_get_file_version(file);
+            vdlg = new VerDlg(this);
+            vdlg->init(file->name, ver);
+            if (vdlg->exec()){
+                ver = vdlg->retVer();
+                ccos_set_file_version(file, ver);
+                isch[acdisk] = 1;
+                fillTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+            }
+        }
+    }
 }
 
 MainWindow::~MainWindow()
