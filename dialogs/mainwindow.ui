@@ -346,19 +346,6 @@
             </layout>
            </widget>
           </item>
-          <item>
-           <widget class="QLabel" name="label">
-            <property name="font">
-             <font>
-              <family>Arial</family>
-              <pointsize>9</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Free space:</string>
-            </property>
-           </widget>
-          </item>
          </layout>
         </item>
         <item>
@@ -481,22 +468,39 @@
             </layout>
            </widget>
           </item>
-          <item>
-           <widget class="QLabel" name="label_2">
-            <property name="font">
-             <font>
-              <family>Arial</family>
-              <pointsize>9</pointsize>
-             </font>
-            </property>
-            <property name="text">
-             <string>Free space:</string>
-            </property>
-           </widget>
-          </item>
          </layout>
         </item>
        </layout>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout_3">
+      <item>
+       <widget class="QLabel" name="label_2">
+        <property name="font">
+         <font>
+          <family>Arial</family>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>Free space:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label">
+        <property name="font">
+         <font>
+          <family>Arial</family>
+          <pointsize>9</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>Free space:</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>
@@ -508,7 +512,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>23</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -530,11 +534,13 @@
     <addaction name="actionAdd"/>
     <addaction name="actionCopy"/>
     <addaction name="actionRename"/>
+    <addaction name="actionDelete"/>
+    <addaction name="actionMake_dir"/>
+    <addaction name="separator"/>
     <addaction name="actionChange_date"/>
     <addaction name="actionChange_label"/>
     <addaction name="actionChange_version"/>
-    <addaction name="actionDelete"/>
-    <addaction name="actionMake_dir"/>
+    <addaction name="separator"/>
     <addaction name="actionExtract"/>
     <addaction name="actionExtract_all"/>
    </widget>
@@ -727,9 +733,6 @@
    </property>
   </action>
   <action name="actionNew">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
    <property name="text">
     <string>New</string>
    </property>

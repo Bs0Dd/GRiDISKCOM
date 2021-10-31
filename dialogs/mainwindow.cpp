@@ -203,7 +203,7 @@ MainWindow::MainWindow(QWidget *parent)
     QTableWidget* twig[] = {ui->tableWidget, ui->tableWidget_2};
     for (int i = 0; i < 2; i++){
         twig[i]->horizontalHeader()->resizeSection(0, 155);
-        twig[i]->horizontalHeader()->resizeSection(2, szcor);
+        twig[i]->horizontalHeader()->resizeSection(2, 45);
         twig[i]->horizontalHeader()->resizeSection(3, 80);
         twig[i]->horizontalHeader()->resizeSection(4, 80);
         twig[i]->horizontalHeader()->resizeSection(5, 80);
@@ -731,10 +731,11 @@ void MainWindow::New(){
     if (dat[acdisk] != nullptr)
         if (!CloseImg()) return;
 
-    //ccos_make_new_image(&dat[acdisk], &siz[acdisk]);
+    siz[acdisk] = 0;
+    dat[acdisk] = ccos_create_new_image(&siz[acdisk]);
 
     inodeon[acdisk].clear();
-    isch[acdisk] = 0;
+    isch[acdisk] = 1;
     isop[acdisk] = 1;
     name[acdisk] = nullptr;
     ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);

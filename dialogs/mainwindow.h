@@ -21,10 +21,8 @@ extern "C"{ //Include for ccos_inode_t type
 }
 
 #if defined(WIN32)
-#define szcor 20
 #define MKDIR(filename, mode) mkdir(filename)
 #else
-#define szcor 42
 #define MKDIR(filename, mode) mkdir(filename, mode)
 #endif
 
