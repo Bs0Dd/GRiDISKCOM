@@ -626,11 +626,17 @@ void MainWindow::Extract(){
         for (int t = 0; t < called.size(); t+=7){
             if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
+            int res;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()]))
-                dump_dir_to(name[acdisk].toStdString().c_str(), inodeon[acdisk][called[t]->row()],
+                res = dump_dir_to(name[acdisk].toStdString().c_str(), inodeon[acdisk][called[t]->row()],
                         dat[acdisk], todir.toStdString().c_str());
             else
-                dump_file(todir.toStdString().c_str(), inodeon[acdisk][called[t]->row()], dat[acdisk]);
+                res = dump_file(todir.toStdString().c_str(), inodeon[acdisk][called[t]->row()], dat[acdisk]);
+            if (res == -1){
+                QMessageBox msgBox;
+                msgBox.critical(0,"Unable to extract file",
+                                QString("Unable to extract file \"%1\". Skipping...").arg(inodeon[acdisk][called[t]->row()]->name));
+            }
         }
     }
 }
@@ -641,7 +647,11 @@ void MainWindow::ExtractAll(){
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
         if (todir == "")
             return;
-        dump_image_to(name[acdisk].toStdString().c_str(), dat[acdisk], siz[acdisk], todir.toStdString().c_str());
+        int res = dump_image_to(name[acdisk].toStdString().c_str(), dat[acdisk], siz[acdisk], todir.toStdString().c_str());
+        if (res == -1){
+            QMessageBox msgBox;
+             msgBox.critical(0,"Unable to extract image", "Unable to extract image. Please check the path.");
+        }
     }
 }
 
@@ -676,7 +686,13 @@ void MainWindow::LoadImg(QString path){
     if (dat[acdisk] != nullptr)
         if (!CloseImg()) return;
 
-    read_file(path.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
+    int res = read_file(path.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
+    if (res == -1){
+        QMessageBox msgBox;
+        msgBox.critical(0,"Unable to open file",
+                        QString("Unable to open file \"%1\". Please check the file.").arg(path));
+        return;
+    }
 
     ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
     if (root == NULL){
@@ -839,7 +855,14 @@ void MainWindow::Save(){
             gb= ui->groupBox;
         else
             gb= ui->groupBox_2;
-        save_image(name[acdisk].toStdString().c_str(), dat[acdisk], siz[acdisk], true);
+
+        int res = save_image(name[acdisk].toStdString().c_str(), dat[acdisk], siz[acdisk], true);
+        if (res == -1){
+            QMessageBox msgBox;
+            msgBox.critical(0,"Unable to save file",
+                            QString("Unable to save file \"%1\". Please check the path.").arg(name[acdisk]));
+            return;
+        }
         isch[acdisk] = 0;
         gb->setTitle(gb->title().left(gb->title().size()-1));
     }
@@ -855,7 +878,13 @@ void MainWindow::SaveAs(){
         QString nameQ = QFileDialog::getSaveFileName(this, tr("Save as"), "", "GRiD Image Files (*.img)");
         if (nameQ == "")
             return;
-        save_image(nameQ.toStdString().c_str(), dat[acdisk], siz[acdisk], true);
+        int res = save_image(nameQ.toStdString().c_str(), dat[acdisk], siz[acdisk], true);
+        if (res == -1){
+            QMessageBox msgBox;
+            msgBox.critical(0,"Unable to save file",
+                            QString("Unable to save file \"%1\". Please check the path.").arg(nameQ));
+            return;
+        }
         name[acdisk] = nameQ;
         if (isch[acdisk]){
             gb->setTitle(gb->title().left(gb->title().size()-1));
