@@ -1,5 +1,11 @@
 #include "mainwindow.h"
 
+#ifdef WIN32
+#include <windows.h>
+QByteArray wincp = QByteArray::number(GetACP());
+QTextCodec *codec = QTextCodec::codecForName("Windows-"+wincp);
+#endif
+
 extern "C"{ //Load C "ccos_image" library headers
 #include <ccos_image/ccos_image.h>
 #include <ccos_image/common.h>
@@ -14,6 +20,19 @@ bool isch[2] = {0};
 struct stat info;
 
 //[Service functions]
+
+//*Get C string with correct encoding
+char* trueCString(QString string){
+#ifdef WIN32
+    QByteArray encwin = codec->fromUnicode(string);
+    char *cstr = new char[encwin.size() + 1];
+    strcpy(cstr, encwin.data());
+#else
+    char *cstr = new char[string.size() + 1];
+    strcpy(cstr, string.toStdString().c_str());
+#endif
+    return cstr;
+}
 
 //*Get file version and convert to QString ("A.B.C")
 QString ccosGetFileVersionQstr(ccos_inode_t* file) {
@@ -99,7 +118,7 @@ int checkFreeSp(uint8_t* data, size_t data_size, QStringList files, size_t* need
     size_t free = ccos_calc_free_space(data, data_size);
     *needs = 0;
     for (int i = 0; i < files.size(); i++) {
-        ifstream in(files[i].toStdString(), ifstream::ate | ifstream::binary);
+        ifstream in(trueCString(files[i]), ifstream::ate | ifstream::binary);
         *needs += in.tellg();
     }
     if (*needs > free)
@@ -197,7 +216,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     trace_init(0); //Set this to 1 for debug trace
-
 
     QMainWindow::setWindowTitle(QString("GRiDISK Commander ")+_PVER_);
     QTableWidget* twig[] = {ui->tableWidget, ui->tableWidget_2};
@@ -354,7 +372,7 @@ int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
                     return -1;
             }
         }
-        if (read_file(files[i].toStdString().c_str(), &fdat, &fsiz) == -1 ||
+        if (read_file(trueCString(files[i]), &fdat, &fsiz) == -1 ||
                 ccos_add_file(copyTo, fdat, fsiz, fname.c_str(), dat[acdisk], siz[acdisk]) == NULL){
             msgBox.critical(0,"Error",
                             QString("Can't add \"%1\" to the image! Skipping...").arg(fname.c_str()));
@@ -580,8 +598,10 @@ void MainWindow::dropEvent(QDropEvent* event){
    const QMimeData* mimeData = event->mimeData();
    if (mimeData->hasUrls()){
      QList<QUrl> urlList = mimeData->urls();
-     for (int i = 0; i < urlList.size() && i < 32; ++i){
-       stat(urlList.at(i).toLocalFile().toStdString().c_str(), &info);
+     for (int i = 0; i < urlList.size(); ++i){
+       char* file = trueCString(urlList.at(i).toLocalFile());
+       stat(file, &info);
+       delete[] file;
        if (info.st_mode & S_IFDIR)
            DirsList.append(urlList.at(i).toLocalFile());
        else
@@ -628,10 +648,10 @@ void MainWindow::Extract(){
                 continue;
             int res;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()]))
-                res = dump_dir_to(name[acdisk].toStdString().c_str(), inodeon[acdisk][called[t]->row()],
-                        dat[acdisk], todir.toStdString().c_str());
+                res = dump_dir_to(trueCString(name[acdisk]), inodeon[acdisk][called[t]->row()],
+                        dat[acdisk], trueCString(todir));
             else
-                res = dump_file(todir.toStdString().c_str(), inodeon[acdisk][called[t]->row()], dat[acdisk]);
+                res = dump_file(trueCString(todir), inodeon[acdisk][called[t]->row()], dat[acdisk]);
             if (res == -1){
                 QMessageBox msgBox;
                 msgBox.critical(0,"Unable to extract file",
@@ -647,7 +667,7 @@ void MainWindow::ExtractAll(){
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
         if (todir == "")
             return;
-        int res = dump_image_to(name[acdisk].toStdString().c_str(), dat[acdisk], siz[acdisk], todir.toStdString().c_str());
+        int res = dump_image_to(trueCString(name[acdisk]), dat[acdisk], siz[acdisk], trueCString(todir));
         if (res == -1){
             QMessageBox msgBox;
              msgBox.critical(0,"Unable to extract image", "Unable to extract image. Please check the path.");
@@ -673,7 +693,7 @@ void MainWindow::Label(){
                                               QString("Set new label for the disk %1:").arg(dsk), QLineEdit::Normal, fname);
         if (nameQ == "")
             return;
-        ccos_set_image_label(dat[acdisk], siz[acdisk], nameQ.toStdString().c_str());
+        ccos_set_image_label(dat[acdisk], siz[acdisk], trueCString(nameQ));
         isch[acdisk]= 1;
         fillTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
@@ -686,7 +706,7 @@ void MainWindow::LoadImg(QString path){
     if (dat[acdisk] != nullptr)
         if (!CloseImg()) return;
 
-    int res = read_file(path.toStdString().c_str(), &dat[acdisk], &siz[acdisk]);
+    int res = read_file(trueCString(path), &dat[acdisk], &siz[acdisk]);
     if (res == -1){
         QMessageBox msgBox;
         msgBox.critical(0,"Unable to open file",
@@ -732,7 +752,7 @@ void MainWindow::MakeDir(){
             return;
         }
         ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
-        if (ccos_create_dir(root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]) == NULL){
+        if (ccos_create_dir(root, trueCString(name), dat[acdisk], siz[acdisk]) == NULL){
             QMessageBox errBox;
             errBox.critical(0,"Failed to create folder",
                             "Program can't create a folder in the image!");
@@ -856,7 +876,7 @@ void MainWindow::Save(){
         else
             gb= ui->groupBox_2;
 
-        int res = save_image(name[acdisk].toStdString().c_str(), dat[acdisk], siz[acdisk], true);
+        int res = save_image(trueCString(name[acdisk]), dat[acdisk], siz[acdisk], true);
         if (res == -1){
             QMessageBox msgBox;
             msgBox.critical(0,"Unable to save file",
@@ -878,7 +898,7 @@ void MainWindow::SaveAs(){
         QString nameQ = QFileDialog::getSaveFileName(this, tr("Save as"), "", "GRiD Image Files (*.img)");
         if (nameQ == "")
             return;
-        int res = save_image(nameQ.toStdString().c_str(), dat[acdisk], siz[acdisk], true);
+        int res = save_image(trueCString(nameQ), dat[acdisk], siz[acdisk], true);
         if (res == -1){
             QMessageBox msgBox;
             msgBox.critical(0,"Unable to save file",

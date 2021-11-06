@@ -7,6 +7,7 @@
 #include <QCloseEvent>
 #include <QInputDialog>
 #include <QMimeData>
+#include <QTextCodec>
 #include <vector>
 #include <fstream>
 #include "ui_mainwindow.h"
@@ -19,12 +20,6 @@
 extern "C"{ //Include for ccos_inode_t type
 #include <ccos_image/ccos_private.h>
 }
-
-#if defined(WIN32)
-#define MKDIR(filename, mode) mkdir(filename)
-#else
-#define MKDIR(filename, mode) mkdir(filename, mode)
-#endif
 
 using namespace std;
 
