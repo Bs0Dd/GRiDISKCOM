@@ -32,7 +32,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="../icon/icon.qrc">
-    <normaloff>:/icon/gridisk.ico</normaloff>:/icon/gridisk.ico</iconset>
+    <normaloff>:/icon/gridisk.png</normaloff>:/icon/gridisk.png</iconset>
   </property>
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">

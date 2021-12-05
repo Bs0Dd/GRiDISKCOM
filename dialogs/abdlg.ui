@@ -38,7 +38,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="../icon/icon.qrc">
-    <normaloff>:/icon/gridisk.ico</normaloff>:/icon/gridisk.ico</iconset>
+    <normaloff>:/icon/gridisk.png</normaloff>:/icon/gridisk.png</iconset>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -62,7 +62,7 @@
         <bool>true</bool>
        </property>
        <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;img src=&quot;:/icon/gridisk.ico&quot;/&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;img src=&quot;:/icon/gridisk.png&quot;/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
      </item>
@@ -77,7 +77,7 @@
         </font>
        </property>
        <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:20pt; color:#ffaa00;&quot;&gt;GRiDISK&lt;br&gt;Commander&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:20pt; color:#000000;&quot;&gt;GRiDISK&lt;br/&gt;Commander&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
       </widget>
      </item>
@@ -188,7 +188,7 @@
       </font>
      </property>
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;GRiDISK Commander&lt;/span&gt; - Simple double-panel file manager for GRiD disks, which is written on C++ and Qt5. Based on BOOtak's &amp;quot;&lt;a href=&quot;https://github.com/BOOtak/CCOS-disk-utils&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;ccos_image&lt;/span&gt;&lt;/a&gt;&amp;quot; C library.&lt;/p&gt;&lt;p&gt;It can interact with content in disks, remove files and directories, adds new from other image or PC filesystem and dump files.&lt;/p&gt;&lt;p&gt;We know, that this program needs only for small number of users, but it will seriously simplify data exchange for GRiD Compass laptop and modern IBM-PC device.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;GRiDISK Commander&lt;/span&gt; - Simple double-panel file manager for GRiD disks, which is written on C++ and Qt. Based on BOOtak's &amp;quot;&lt;a href=&quot;https://github.com/BOOtak/CCOS-disk-utils&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;ccos_image&lt;/span&gt;&lt;/a&gt;&amp;quot; C library.&lt;/p&gt;&lt;p&gt;It can interact with content in disks, remove files and directories, adds new from other image or PC filesystem and dump files.&lt;/p&gt;&lt;p&gt;We know, that this program needs only for small number of users, but it will seriously simplify data exchange for GRiD Compass laptop and modern IBM-PC device.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
