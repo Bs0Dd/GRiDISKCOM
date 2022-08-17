@@ -1,24 +1,22 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
-#include <QFileDialog>
 #include <QMessageBox>
+#include <QFileDialog>
 #include <QCloseEvent>
 #include <QInputDialog>
 #include <QMimeData>
-#include <QTextCodec>
 #include <vector>
-#include <fstream>
 #include "ui_mainwindow.h"
 #include "abdlg.h"
 #include "datedlg.h"
 #include "rendlg.h"
 #include "verdlg.h"
-#include "sys/stat.h"
 
-extern "C"{ //Include for ccos_inode_t type
+extern "C"{ //Load C "ccos_image" library headers
+#include <ccos_image/ccos_image.h>
 #include <ccos_image/ccos_private.h>
+#include <ccos_image/common.h>
 }
 
 using namespace std;
@@ -41,6 +39,7 @@ public slots:
     void Date();
     void dragEnterEvent(QDragEnterEvent *event);
     void dropEvent(QDropEvent* event);
+    void DebTrace();
     void Delete();
     void OpenDir();
     void focusChanged(QWidget*, QWidget* now);

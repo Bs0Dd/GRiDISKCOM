@@ -49,8 +49,6 @@ add_executable(GRiDISKCOM ${GUI_TYPE}
         dialogs/verdlg.h
         dialogs/verdlg.ui
         icon/icon.qrc
-        ccos_image/wrapper.h
-        ccos_image/wrapper.c
         execico.rc
         )
 

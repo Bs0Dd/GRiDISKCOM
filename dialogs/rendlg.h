@@ -1,8 +1,6 @@
 #ifndef RENDLG_H
 #define RENDLG_H
 
-#include <QDialog>
-#include <QMessageBox>
 #include "ui_rendlg.h"
 
 namespace Ui {

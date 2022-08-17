@@ -72,7 +72,6 @@
         <font>
          <family>Sans Serif</family>
          <pointsize>11</pointsize>
-         <weight>75</weight>
          <bold>true</bold>
         </font>
        </property>
@@ -128,7 +127,7 @@
       <widget class="QLabel" name="label_4">
        <property name="font">
         <font>
-         <family>Arial</family>
+         <family>Sans Serif</family>
         </font>
        </property>
        <property name="text">
@@ -140,9 +139,8 @@
       <widget class="QLabel" name="label_5">
        <property name="font">
         <font>
-         <family>Segoe UI</family>
-         <pointsize>10</pointsize>
-         <weight>75</weight>
+         <family>Sans Serif</family>
+         <pointsize>11</pointsize>
          <bold>true</bold>
         </font>
        </property>
@@ -278,7 +276,7 @@
        </property>
        <property name="font">
         <font>
-         <family>MS Shell Dlg 2</family>
+         <family>Sans Serif</family>
          <pointsize>10</pointsize>
         </font>
        </property>

@@ -1,7 +1,5 @@
 #include "datedlg.h"
 
-#include <iostream>
-
 DateDlg::DateDlg(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::DateDlg)

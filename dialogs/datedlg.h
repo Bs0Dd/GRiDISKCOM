@@ -1,12 +1,10 @@
 #ifndef DATEDLG_H
 #define DATEDLG_H
 
-#include <QDialog>
-#include <QMessageBox>
 #include "ui_datedlg.h"
 
 extern "C"{ //Include for ccos_date_t type
-#include <ccos_image/ccos_private.h>
+#include <ccos_image/ccos_image.h>
 }
 
 namespace Ui {

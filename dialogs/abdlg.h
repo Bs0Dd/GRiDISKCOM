@@ -1,12 +1,11 @@
 #ifndef ABDLG_H
 #define ABDLG_H
 
-#include <QDialog>
 #include <QDesktopServices>
 #include <QUrl>
 #include "ui_abdlg.h"
 
-#define _PVER_ "v0.22-beta"
+#define _PVER_ "0.24-beta"
 
 namespace Ui {
 class AbDlg;

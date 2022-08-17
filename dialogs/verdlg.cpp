@@ -1,7 +1,5 @@
 #include "verdlg.h"
 
-#include <iostream>
-
 VerDlg::VerDlg(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::VerDlg)

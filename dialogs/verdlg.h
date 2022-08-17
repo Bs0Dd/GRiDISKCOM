@@ -1,12 +1,10 @@
 #ifndef VERDLG_H
 #define VERDLG_H
 
-#include <QDialog>
-#include <QMessageBox>
 #include "ui_verdlg.h"
 
-extern "C"{ //Include for ccos_date_t type
-#include <ccos_image/ccos_private.h>
+extern "C"{ //Include for version_t type
+#include <ccos_image/ccos_image.h>
 }
 
 namespace Ui {

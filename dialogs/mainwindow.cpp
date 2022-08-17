@@ -1,38 +1,10 @@
 #include "mainwindow.h"
 
-#ifdef WIN32
-#include <windows.h>
-QByteArray wincp = QByteArray::number(GetACP());
-QTextCodec *codec = QTextCodec::codecForName("Windows-"+wincp);
-#endif
-
-extern "C"{ //Load C "ccos_image" library headers
-#include <ccos_image/ccos_image.h>
-#include <ccos_image/common.h>
-#include <ccos_image/wrapper.h>
-}
-
-using namespace std;
-
 vector<ccos_inode_t*> inodeon[2];
 ccos_inode_t* curdir[2] = {NULL};
 bool isch[2] = {0};
-struct stat info;
 
 //[Service functions]
-
-//*Get C string with correct encoding
-char* trueCString(QString string){
-#ifdef WIN32
-    QByteArray encwin = codec->fromUnicode(string);
-    char *cstr = new char[encwin.size() + 1];
-    strcpy(cstr, encwin.data());
-#else
-    char *cstr = new char[string.size() + 1];
-    strcpy(cstr, string.toStdString().c_str());
-#endif
-    return cstr;
-}
 
 //*Get file version and convert to QString ("A.B.C")
 QString ccosGetFileVersionQstr(ccos_inode_t* file) {
@@ -118,13 +90,192 @@ int checkFreeSp(uint8_t* data, size_t data_size, QStringList files, size_t* need
     size_t free = ccos_calc_free_space(data, data_size);
     *needs = 0;
     for (int i = 0; i < files.size(); i++) {
-        ifstream in(trueCString(files[i]), ifstream::ate | ifstream::binary);
-        *needs += in.tellg();
+        QFileInfo fil(files[i]);
+        *needs += fil.size();
     }
     if (*needs > free)
         return -1;
     else
         return 0;
+}
+
+//*Read file to uint8_t* array
+int read_file_qt(QString path, uint8_t** file_data, size_t* file_size){
+    QFileInfo ilfile(path);
+    if (!ilfile.exists()){
+        QMessageBox msgBox;
+        msgBox.critical(0,"Invalid path",
+                        QString("The object on the path \"%1\" does not exist!").arg(path));
+        return -1;
+    }
+
+    if (!ilfile.isFile()){
+        QMessageBox msgBox;
+        msgBox.critical(0,"Invalid path",
+                        QString("The object on the path \"%1\" is not file!").arg(path));
+        return -1;
+    }
+
+    QFile lfile(path);
+    if (!lfile.open(QIODevice::ReadOnly)){
+        QMessageBox msgBox;
+        msgBox.critical(0,"Unable to open file",
+                        QString("Unable to open file \"%1\". Please check the file.").arg(path));
+        return -1;
+    }
+
+    *file_size = ilfile.size();
+
+    *file_data = (uint8_t*)calloc(*file_size, sizeof(uint8_t));
+
+    if (file_data == nullptr){
+        QMessageBox msgBox;
+        msgBox.critical(0,"Failed to allocate memory",
+                        QString("Failed to allocate %1 bytes for image. Please free up some RAM.").arg(*file_size));
+        return -1;
+    }
+
+    qint64 readed = lfile.read((char*)(*file_data), *file_size);
+
+    if (readed == -1){
+        QMessageBox msgBox;
+        msgBox.critical(0,"Failed to read data",
+                        QString("Failed to read data from file \"%1\". Please check the file.").arg(path));
+
+        free(*file_data);
+        *file_data = nullptr;
+        return -1;
+    }
+
+    return 0;
+}
+
+//*Write file from uint8_t* array
+int save_file_qt(QString path, uint8_t* file_data, size_t file_size){
+    QFile lfile(path);
+    if (!lfile.open(QIODevice::WriteOnly)){
+        QMessageBox msgBox;
+        msgBox.critical(0,"Unable to open/create file",
+                        QString("Unable to open/create file \"%1\". Please check the file.").arg(path));
+        return -1;
+    }
+
+    qint64 written = lfile.write((char*)(file_data), file_size);
+
+    if (written == -1){
+        QMessageBox msgBox;
+        msgBox.critical(0,"Failed to write data",
+                        QString("Failed to write data to file \"%1\"!").arg(path));
+        return -1;
+    }
+
+    return 0;
+}
+
+//*Dump file from image to path
+int dump_file_qt(ccos_inode_t* file, uint8_t* data, QString path){
+    char* fnam = short_string_to_string(ccos_get_file_name(file));
+    replace_char_in_place(fnam, '/', '_');
+
+    QString fpath = QDir(path).filePath(fnam);
+
+    size_t file_size = 0;
+    uint8_t* file_data = NULL;
+
+    if (ccos_read_file(file, data, &file_data, &file_size) == -1) {
+        QMessageBox msgBox;
+        msgBox.critical(0,"Failed to read file from image",
+                      QString("Unable to read file \"%1\": Unable to get file contents!").arg(fnam));
+        free(fnam);
+        return -1;
+    }
+
+    free(fnam);
+
+    if (save_file_qt(fpath, file_data, file_size) == -1){
+        free(file_data);
+        return -1;
+    }
+
+    free(file_data);
+    return 0;
+}
+
+//*Dump dir from image to path
+int dump_dir_qt(ccos_inode_t* dir, uint8_t* data, QString path){
+    char name[CCOS_MAX_FILE_NAME];
+    memset(name, 0, CCOS_MAX_FILE_NAME);
+    ccos_parse_file_name(dir, name, NULL, NULL, NULL);
+    replace_char_in_place(name, '/', '_');
+
+    QString dpath = QDir(path).filePath(name);
+
+    if (!QDir(dpath).exists() && !QDir().mkdir(dpath)){
+            QMessageBox msgBox;
+            msgBox.critical(0,"Failed to create directory",
+                          QString("Failed to create directory \"%1\"!").arg(name));
+            return -1;
+    }
+
+    uint16_t fils = 0;
+    ccos_inode_t** dirdata = NULL;
+    ccos_get_dir_contents(dir, data, &fils, &dirdata);
+
+    for(int i = 0; i < fils; i++){
+        if (ccos_is_dir(dirdata[i]))
+            dump_dir_qt(dirdata[i], data, dpath);
+        else
+            dump_file_qt(dirdata[i], data, dpath);
+    }
+
+    free(dirdata);
+    return 0;
+}
+
+//*Dump full image to path
+int dump_img_qt(uint8_t* data, size_t data_size, QString path, QString altname){
+    ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
+    if (root_dir == NULL) {
+        QMessageBox msgBox;
+        msgBox.critical(0,"Failed to dump image",
+                      "Unable to dump image: Unable to get root directory!");
+        return -1;
+    }
+
+    char* name = short_string_to_string(ccos_get_file_name(root_dir));
+    QString dnam;
+
+    if (strcmp(name, "") == 0){
+        dnam = altname;
+    }
+    else{
+        replace_char_in_place(name, '/', '_');
+        dnam = name;
+    }
+    free(name);
+
+    QString dpath = QDir(path).filePath(dnam);
+
+    if (!QDir(dpath).exists() && !QDir().mkdir(dpath)){
+            QMessageBox msgBox;
+            msgBox.critical(0,"Failed to create directory",
+                          QString("Failed to create directory \"%1\"!").arg(dnam));
+            return -1;
+    }
+
+    return dump_dir_qt(root_dir, data, dpath);
+}
+
+//*Check if string is valid for CCOS (does not contain unicode characters)
+int validString(QString string){
+    for (int i = 0; i < string.size(); i++){
+        if (string[i] > 256){
+            QMessageBox msgBox;
+            msgBox.critical(0,"Incorrect characters", "Invalid characters were found. Can`t rename!");
+            return -1;
+        }
+    }
+    return 0;
 }
 
 //*Get directory listing and fill it to table
@@ -154,6 +305,7 @@ void fillTable(ccos_inode_t* directory, bool noRoot, uint8_t* dat, size_t siz, b
     char* labd = ccos_get_image_label(dat, siz);
     msg = "Disk %1 - %2%3";
     box->setTitle(msg.arg(disk, (strlen(labd) != 0) ? labd : "No label", isch[curdisk] ? "*" : ""));
+    free(labd);
     char basename[CCOS_MAX_FILE_NAME];
     char type[CCOS_MAX_FILE_NAME];
     int fcount = 0;
@@ -215,9 +367,9 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    trace_init(0); //Set this to 1 for debug trace
+    trace_init(0);
 
-    QMainWindow::setWindowTitle(QString("GRiDISK Commander ")+_PVER_);
+    QMainWindow::setWindowTitle(QString("GRiDISK Commander v")+_PVER_);
     QTableWidget* twig[] = {ui->tableWidget, ui->tableWidget_2};
     for (int i = 0; i < 2; i++){
         twig[i]->horizontalHeader()->resizeSection(0, 155);
@@ -241,6 +393,28 @@ MainWindow::MainWindow(QWidget *parent)
     diskfont.setBold(false);
     ui->groupBox_2->setFont(diskfont);
     ui->tableWidget_2->setFont(diskfont);
+
+    QStringList argv = QCoreApplication::arguments();
+    int argc = argv.size();
+
+    if (argc > 1){
+        for (int i = 1; i < argc; i++){
+            QString arg = argv[i];
+            if (arg == "--trace") {
+                if (!ui->actionDebtrace->isChecked()){
+                    ui->actionDebtrace->setChecked(true);
+                    DebTrace();
+                }
+            }
+            else if (!isop[0] || !isop[1]){
+                if (QFileInfo::exists(arg)){
+                    acdisk = isop[0];
+                    LoadImg(arg);
+                }
+            }
+        }
+    }
+
     //  Buttons connecting
     connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(OpenImg()));
     connect(ui->pushButton_2, SIGNAL(clicked()), this, SLOT(CloseImg()));
@@ -260,6 +434,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionChange_version, SIGNAL(triggered()), this, SLOT(Version()));
     connect(ui->actionClose, SIGNAL(triggered()), this, SLOT(CloseImg()));
     connect(ui->actionCopy, SIGNAL(triggered()), this, SLOT(Copy()));
+    connect(ui->actionDebtrace, SIGNAL(triggered()), this, SLOT(DebTrace()));
     connect(ui->actionDelete, SIGNAL(triggered()), this, SLOT(Delete()));
     connect(ui->actionExit, SIGNAL(triggered()), this, SLOT(close()));
     connect(ui->actionExtract, SIGNAL(triggered()), this, SLOT(Extract()));
@@ -372,10 +547,11 @@ int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
                     return -1;
             }
         }
-        if (read_file(trueCString(files[i]), &fdat, &fsiz) == -1 ||
-                ccos_add_file(copyTo, fdat, fsiz, fname.c_str(), dat[acdisk], siz[acdisk]) == NULL){
-            msgBox.critical(0,"Error",
-                            QString("Can't add \"%1\" to the image! Skipping...").arg(fname.c_str()));
+        if (read_file_qt(files[i], &fdat, &fsiz) == 0){
+            if (ccos_add_file(copyTo, fdat, fsiz, fname.c_str(), dat[acdisk], siz[acdisk]) == NULL){
+                msgBox.critical(0,"Error",
+                                QString("Can't add \"%1\" to the image! Skipping...").arg(fname.c_str()));
+            }
         }
     }
     if (files.size() != 0){
@@ -551,6 +727,18 @@ void MainWindow::Date(){
     }
 }
 
+void MainWindow::DebTrace(){
+    if (!ui->actionDebtrace->isChecked()){
+        TRACE("ccos_image debug trace disabled");
+    }
+
+    trace_init(ui->actionDebtrace->isChecked());
+
+    if (ui->actionDebtrace->isChecked()){
+        TRACE("ccos_image debug trace enabled");
+    }
+}
+
 void MainWindow::Delete(){
     QTableWidget* tw;
     if (isop[acdisk]){
@@ -599,10 +787,8 @@ void MainWindow::dropEvent(QDropEvent* event){
    if (mimeData->hasUrls()){
      QList<QUrl> urlList = mimeData->urls();
      for (int i = 0; i < urlList.size(); ++i){
-       char* file = trueCString(urlList.at(i).toLocalFile());
-       stat(file, &info);
-       delete[] file;
-       if (info.st_mode & S_IFDIR)
+       QFileInfo file(urlList.at(i).toLocalFile());
+       if (file.isDir())
            DirsList.append(urlList.at(i).toLocalFile());
        else
            FilesList.append(urlList.at(i).toLocalFile());
@@ -648,15 +834,9 @@ void MainWindow::Extract(){
                 continue;
             int res;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()]))
-                res = dump_dir_to(trueCString(name[acdisk]), inodeon[acdisk][called[t]->row()],
-                        dat[acdisk], trueCString(todir));
+                dump_dir_qt(inodeon[acdisk][called[t]->row()], dat[acdisk], todir);
             else
-                res = dump_file(trueCString(todir), inodeon[acdisk][called[t]->row()], dat[acdisk]);
-            if (res == -1){
-                QMessageBox msgBox;
-                msgBox.critical(0,"Unable to extract file",
-                                QString("Unable to extract file \"%1\". Skipping...").arg(inodeon[acdisk][called[t]->row()]->name));
-            }
+                dump_file_qt(inodeon[acdisk][called[t]->row()], dat[acdisk], todir);
         }
     }
 }
@@ -667,10 +847,11 @@ void MainWindow::ExtractAll(){
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
         if (todir == "")
             return;
-        int res = dump_image_to(trueCString(name[acdisk]), dat[acdisk], siz[acdisk], trueCString(todir));
+        QFileInfo dnam(name[acdisk]);
+        int res = dump_img_qt(dat[acdisk], siz[acdisk], todir, dnam.baseName());
         if (res == -1){
             QMessageBox msgBox;
-             msgBox.critical(0,"Unable to extract image", "Unable to extract image. Please check the path.");
+            msgBox.critical(0,"Unable to extract image", "Unable to extract image. Please check the path.");
         }
     }
 }
@@ -693,7 +874,11 @@ void MainWindow::Label(){
                                               QString("Set new label for the disk %1:").arg(dsk), QLineEdit::Normal, fname);
         if (nameQ == "")
             return;
-        ccos_set_image_label(dat[acdisk], siz[acdisk], trueCString(nameQ));
+
+        if (validString(nameQ) == -1)
+            return;
+
+        ccos_set_image_label(dat[acdisk], siz[acdisk], nameQ.toStdString().c_str());
         isch[acdisk]= 1;
         fillTable(curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
@@ -706,13 +891,8 @@ void MainWindow::LoadImg(QString path){
     if (dat[acdisk] != nullptr)
         if (!CloseImg()) return;
 
-    int res = read_file(trueCString(path), &dat[acdisk], &siz[acdisk]);
-    if (res == -1){
-        QMessageBox msgBox;
-        msgBox.critical(0,"Unable to open file",
-                        QString("Unable to open file \"%1\". Please check the file.").arg(path));
+    if (read_file_qt(path, &dat[acdisk], &siz[acdisk]) == -1)
         return;
-    }
 
     ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
     if (root == NULL){
@@ -744,6 +924,10 @@ void MainWindow::MakeDir(){
                                              tr("New directory name:"), QLineEdit::Normal,"");
         if (name == "")
             return;
+
+        if (validString(name) == -1)
+            return;
+
         size_t free = ccos_calc_free_space(dat[acdisk], siz[acdisk]);
         if (free < 1024) {
             QMessageBox errBox;
@@ -752,7 +936,7 @@ void MainWindow::MakeDir(){
             return;
         }
         ccos_inode_t* root = ccos_get_root_dir(dat[acdisk], siz[acdisk]);
-        if (ccos_create_dir(root, trueCString(name), dat[acdisk], siz[acdisk]) == NULL){
+        if (ccos_create_dir(root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]) == NULL){
             QMessageBox errBox;
             errBox.critical(0,"Failed to create folder",
                             "Program can't create a folder in the image!");
@@ -808,7 +992,6 @@ void MainWindow::OpenDir(){
 
 void MainWindow::OpenImg(){
     QString Qname = QFileDialog::getOpenFileName(this, "Open Image", "", "GRiD Image Files (*.img)");
-    //QString Qname = "/home/bs0dd/Pobrane/MODIF.img";
     if (Qname != "")
         LoadImg(Qname);
 }
@@ -857,6 +1040,12 @@ void  MainWindow::Rename(){
             }
             QString newname = rnam->getName();
             QString newtype = rnam->getType();
+
+            if (validString(newname) == -1)
+                return;
+            if (validString(newtype) == -1)
+                return;
+
             ccos_rename_file(reninode, newname.toStdString().c_str(), newtype.toStdString().c_str());
             isch[acdisk] = 1;
             fillTable(ccos_get_parent_dir(reninode, dat[acdisk]),
@@ -876,7 +1065,7 @@ void MainWindow::Save(){
         else
             gb= ui->groupBox_2;
 
-        int res = save_image(trueCString(name[acdisk]), dat[acdisk], siz[acdisk], true);
+        int res = save_file_qt(name[acdisk], dat[acdisk], siz[acdisk]);
         if (res == -1){
             QMessageBox msgBox;
             msgBox.critical(0,"Unable to save file",
@@ -898,7 +1087,7 @@ void MainWindow::SaveAs(){
         QString nameQ = QFileDialog::getSaveFileName(this, tr("Save as"), "", "GRiD Image Files (*.img)");
         if (nameQ == "")
             return;
-        int res = save_image(trueCString(nameQ), dat[acdisk], siz[acdisk], true);
+        int res = save_file_qt(nameQ, dat[acdisk], siz[acdisk]);
         if (res == -1){
             QMessageBox msgBox;
             msgBox.critical(0,"Unable to save file",
