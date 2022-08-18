@@ -9,6 +9,7 @@
 #include <vector>
 #include "ui_mainwindow.h"
 #include "abdlg.h"
+#include "chsedlg.h"
 #include "datedlg.h"
 #include "rendlg.h"
 #include "verdlg.h"
@@ -18,6 +19,13 @@ extern "C"{ //Load C "ccos_image" library headers
 #include <ccos_image/ccos_private.h>
 #include <ccos_image/common.h>
 }
+
+typedef struct {
+  bool isgrid;
+  bool active;
+  uint64_t offset;
+  uint64_t size;
+} mbr_part_t;
 
 using namespace std;
 
@@ -36,6 +44,7 @@ public slots:
     void closeEvent(QCloseEvent *event);
     int  CloseImg();
     void Copy();
+    void CopyLoc();
     void Date();
     void dragEnterEvent(QDragEnterEvent *event);
     void dropEvent(QDropEvent* event);
@@ -62,9 +71,14 @@ public:
     size_t siz[2] = {0};
     bool acdisk = 0;
     QString name[2];
+    bool hddmode[2] = {0};
+    uint8_t* hdddat[2] = {NULL};
+    size_t hddsiz[2] = {0};
+    int partoffset[2] = {0};
 private:
     Ui::MainWindow *ui;
     AbDlg *abss;
+    ChsDlg *chsd;
     DateDlg *datd;
     RenDlg *rnam;
     VerDlg *vdlg;
