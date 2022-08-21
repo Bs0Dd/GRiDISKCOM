@@ -520,8 +520,17 @@
     </property>
     <addaction name="actionDebtrace"/>
    </widget>
+   <widget class="QMenu" name="menuHard_disk">
+    <property name="title">
+     <string>Hard Disk</string>
+    </property>
+    <addaction name="actionAno_part"/>
+    <addaction name="actionAct_part"/>
+    <addaction name="actionSep_save"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
+   <addaction name="menuHard_disk"/>
    <addaction name="menuDebug"/>
    <addaction name="menuHelp"/>
   </widget>
@@ -685,7 +694,7 @@
   </action>
   <action name="actionNew">
    <property name="text">
-    <string>New</string>
+    <string>New image (360k)</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+N</string>
@@ -708,6 +717,30 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+C</string>
+   </property>
+  </action>
+  <action name="actionAno_part">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Open another partition</string>
+   </property>
+  </action>
+  <action name="actionSep_save">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Save partition to a separate file</string>
+   </property>
+  </action>
+  <action name="actionAct_part">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Change active partition</string>
    </property>
   </action>
  </widget>

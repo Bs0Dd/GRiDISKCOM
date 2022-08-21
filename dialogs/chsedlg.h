@@ -17,6 +17,8 @@ public:
     void setName(QString text);
     void addItem(QString name);
     int getIndex();
+    void enCheckBox();
+    bool isChecked();
     ~ChsDlg();
 
 private:

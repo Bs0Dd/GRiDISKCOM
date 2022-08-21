@@ -41,6 +41,8 @@ public slots:
     void Add();
     void AddDirs(QStringList dirs);
     int  AddFiles(QStringList files, ccos_inode_t* copyTo);
+    void AnPartMenu();
+    void AnotherPart(bool fromMenu);
     void closeEvent(QCloseEvent *event);
     int  CloseImg();
     void Copy();
@@ -51,7 +53,8 @@ public slots:
     void DebTrace();
     void Delete();
     void OpenDir();
-    void focusChanged(QWidget*, QWidget* now);
+    void FocusChanged(QWidget*, QWidget* now);
+    void HDDMenu(bool activ);
     void Extract();
     void ExtractAll();
     void LoadImg(QString path);
@@ -62,6 +65,8 @@ public slots:
     void Rename();
     void Save();
     void SaveAs();
+    void SavePart();
+    void SetActivePart();
     void Version();
 public:
     MainWindow(QWidget *parent = nullptr);
@@ -74,7 +79,7 @@ public:
     bool hddmode[2] = {0};
     uint8_t* hdddat[2] = {NULL};
     size_t hddsiz[2] = {0};
-    int partoffset[2] = {0};
+    bool oneimg = 0;
 private:
     Ui::MainWindow *ui;
     AbDlg *abss;
@@ -82,7 +87,5 @@ private:
     DateDlg *datd;
     RenDlg *rnam;
     VerDlg *vdlg;
-    qint8 focused;
-    void setFocused(qint8 focused);
 };
 #endif // MAINWINDOW_H

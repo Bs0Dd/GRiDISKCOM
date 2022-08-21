@@ -5,6 +5,7 @@ ChsDlg::ChsDlg(QWidget *parent) :
     ui(new Ui::ChsDlg)
 {
     ui->setupUi(this);
+    ui->checkBox->hide();
 }
 
 void ChsDlg::setInfo(QString text){
@@ -21,6 +22,14 @@ void ChsDlg::addItem(QString name){
 
 int ChsDlg::getIndex(){
     return ui->comboBox->currentIndex();
+}
+
+void ChsDlg::enCheckBox(){
+    ui->checkBox->show();
+}
+
+bool ChsDlg::isChecked(){
+    return ui->checkBox->isChecked();
 }
 
 ChsDlg::~ChsDlg()
