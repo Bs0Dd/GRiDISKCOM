@@ -420,7 +420,8 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(new Ui::MainWin
                 }
             }
             else if (!isop[0] || !isop[1]){
-                if (QFileInfo::exists(arg)){
+                QFileInfo fil(arg);
+                if (fil.suffix().toLower() == "img" && fil.exists()){
                     acdisk = isop[0];
                     LoadImg(arg);
                 }

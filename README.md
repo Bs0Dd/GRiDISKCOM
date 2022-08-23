@@ -5,12 +5,17 @@ GRiDISK Commander - File manager for GRiD OS standard disks, that used in GRiD C
 
 Commander can:
 
+* Create new (360k floppy) images.
 * Add files to image.
 * Create/add folders to image.
+* Copy files/folders inside the image.
 * Transfer files between images.
 * Dump files to computer.
 * Change name for files/folders.
 * Change image label.
+* Work with GRiD HDD (with MBR) partitions and extract them.
+
+**WARNING:** GRiDISK Commander can't work with Bubble Memory images (however support is planned).
 
 ## Building requirements
 * Needs MinGW x32 or x64 with Qt5 to compile in Windows.

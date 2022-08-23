@@ -5,7 +5,7 @@
 #include <QUrl>
 #include "ui_abdlg.h"
 
-#define _PVER_ "0.24-beta"
+#define _PVER_ "0.28-beta"
 
 namespace Ui {
 class AbDlg;
