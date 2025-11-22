@@ -10,6 +10,8 @@ add_library(ccosclib STATIC
         ccos_image/ccos_image.c
         ccos_image/ccos_private.c
         ccos_image/ccos_private.h
+        ccos_image/ccos_structure.h
+        ccos_image/ccos_structure.c
         )
 
 project(GRiDISKCOM LANGUAGES CXX)

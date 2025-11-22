@@ -81,6 +81,7 @@ public:
     size_t hddsiz[2] = {0};
     bool oneimg = 0;
 private:
+    ccfs_handle ccfs_ctx;
     Ui::MainWindow *ui;
     AbDlg *abss;
     ChsDlg *chsd;
