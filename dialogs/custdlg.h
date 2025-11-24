@@ -18,6 +18,8 @@ public slots:
 public:
     explicit CustDlg(QWidget *parent = nullptr);
     ~CustDlg();
+    void GetParams(uint16_t* isize, uint16_t* sect, uint16_t* subl);
+    void SetParams(uint16_t isize, uint16_t sect, uint16_t subl);
 
 private:
     Ui::CustDlg *ui;

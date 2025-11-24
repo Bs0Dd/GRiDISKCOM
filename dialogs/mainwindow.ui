@@ -481,8 +481,7 @@
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionNew"/>
-    <addaction name="actionNewCustom"/>
+    <addaction name="actionNewImage"/>
     <addaction name="actionOpen"/>
     <addaction name="actionSave"/>
     <addaction name="actionSave_as"/>
@@ -744,12 +743,12 @@
     <string>Change active partition</string>
    </property>
   </action>
-  <action name="actionNewCustom">
+  <action name="actionNewImage">
    <property name="text">
-    <string>New image (custom)</string>
+    <string>New image</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Shift+N</string>
+    <string>Ctrl+N</string>
    </property>
   </action>
  </widget>

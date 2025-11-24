@@ -61,8 +61,7 @@ public slots:
     void LoadImg(QString path);
     void Label();
     void MakeDir();
-    void New();
-    void NewCustom();
+    void NewImage();
     void OpenImg();
     void Rename();
     void Save();

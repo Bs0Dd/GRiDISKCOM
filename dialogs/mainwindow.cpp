@@ -460,8 +460,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(new Ui::MainWin
     connect(ui->actionExtract, SIGNAL(triggered()), this, SLOT(Extract()));
     connect(ui->actionExtract_all, SIGNAL(triggered()), this, SLOT(ExtractAll()));
     connect(ui->actionMake_dir, SIGNAL(triggered()), this, SLOT(MakeDir()));
-    connect(ui->actionNew, SIGNAL(triggered()), this, SLOT(New()));
-    connect(ui->actionNewCustom, SIGNAL(triggered()), this, SLOT(NewCustom()));
+    connect(ui->actionNewImage, SIGNAL(triggered()), this, SLOT(NewImage()));
     connect(ui->actionOpen, SIGNAL(triggered()), this, SLOT(OpenImg()));
     connect(ui->actionRename, SIGNAL(triggered()), this, SLOT(Rename()));
     connect(ui->actionSave, SIGNAL(triggered()), this, SLOT(Save()));
@@ -1179,24 +1178,27 @@ void MainWindow::MakeDir(){
     }
 }
 
-void MainWindow::New(){
+void MainWindow::NewImage(){
     if (dat[acdisk] != NULL)
         if (!CloseImg()) return;
 
-    siz[acdisk] = 360 * 1024;
-    dat[acdisk] = ccos_create_new_image(ccdesc[acdisk], 720);
-
-    isch[acdisk] = true;
-    isop[acdisk] = true;
-    ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
-    curdir[acdisk] = root;
-    fillTable(ccdesc[acdisk], root, false, dat[acdisk], siz[acdisk], acdisk, ui);
-}
-
-void MainWindow::NewCustom(){
     cstdlg = new CustDlg(this);
 
-    cstdlg->exec();
+    if (cstdlg->exec() == 1) {
+        uint16_t isize, sect, subl;
+        cstdlg->GetParams(&isize, &sect, &subl);
+
+        ccdesc[acdisk] = new ccfs_context_t({ sect, subl, static_cast<uint16_t>(subl-1) });
+
+        siz[acdisk] = isize * 1024;
+        dat[acdisk] = ccos_create_new_image(ccdesc[acdisk], (isize * (1024 / sect)));
+
+        isch[acdisk] = true;
+        isop[acdisk] = true;
+        ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+        curdir[acdisk] = root;
+        fillTable(ccdesc[acdisk], root, false, dat[acdisk], siz[acdisk], acdisk, ui);
+    }
 }
 
 void MainWindow::OpenDir(){

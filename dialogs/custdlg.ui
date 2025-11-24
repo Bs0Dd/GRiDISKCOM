@@ -157,7 +157,7 @@
      </font>
     </property>
     <property name="text">
-     <string>Supported superblock values: 0x0000 - 0xFFFF</string>
+     <string>Supported superblock values: 0x0001 - 0xFFFF</string>
     </property>
    </widget>
    <widget class="QSpinBox" name="spinBox">
@@ -172,11 +172,14 @@
       <height>26</height>
      </rect>
     </property>
+    <property name="minimum">
+     <number>1</number>
+    </property>
     <property name="maximum">
      <number>65535</number>
     </property>
     <property name="value">
-     <number>0</number>
+     <number>1</number>
     </property>
     <property name="displayIntegerBase">
      <number>16</number>
@@ -253,7 +256,7 @@
    <widget class="QLabel" name="label_2">
     <property name="geometry">
      <rect>
-      <x>80</x>
+      <x>70</x>
       <y>90</y>
       <width>201</width>
       <height>17</height>
