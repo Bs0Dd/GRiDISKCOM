@@ -44,6 +44,9 @@ add_executable(GRiDISKCOM ${GUI_TYPE}
         dialogs/chsedlg.cpp
         dialogs/chsedlg.h
         dialogs/chsedlg.ui
+        dialogs/custdlg.cpp
+        dialogs/custdlg.h
+        dialogs/custdlg.ui
         dialogs/datedlg.cpp
         dialogs/datedlg.h
         dialogs/datedlg.ui
