@@ -77,7 +77,7 @@ int tildaCheck(string parse_str){
 int checkFreeSp(ccfs_handle ctx, uint8_t* data, size_t data_size, vector<ccos_inode_t*> inodeList,
                 QList<QTableWidgetItem *> calledElems, size_t* needs){ //*For copy
 
-    size_t fre = ccos_calc_free_space(ctx, data, data_size);
+    size_t frsp = ccos_calc_free_space(ctx, data, data_size);
     *needs = 0;
     for (int i = 0; i < calledElems.size(); i+=6){
         ccos_inode_t* file = inodeList[calledElems[i]->row()];
@@ -97,19 +97,19 @@ int checkFreeSp(ccfs_handle ctx, uint8_t* data, size_t data_size, vector<ccos_in
         }
     }
 
-    if (*needs > fre)
+    if (*needs > frsp)
         return -1;
     else
         return 0;
 }
 
 int checkFreeSp(ccfs_handle ctx, uint8_t* data, size_t data_size, QStringList files, size_t* needs){ //*For add
-    size_t free = ccos_calc_free_space(ctx, data, data_size);
+    size_t frsp = ccos_calc_free_space(ctx, data, data_size);
     *needs = 0;
     for (int i = 0; i < files.size(); i++) {
         *needs += QFileInfo(files[i]).size();
     }
-    if (*needs > free)
+    if (*needs > frsp)
         return -1;
     else
         return 0;
@@ -378,12 +378,9 @@ int saveBox(QString disk, QWidget* parent){
 //[Service functions]
 
 MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(new Ui::MainWindow){
-    ccdesc[0] = new ccfs_context_t({ 512, 0x121, 0x120 }); // !!!TODO!!!: Make context only when disk opened,
-    ccdesc[1] = new ccfs_context_t({ 512, 0x121, 0x120 }); //             using correct image parameters.
-
     ui->setupUi(this);
 
-    trace_init(0);
+    trace_init(false);
 
     QMainWindow::setWindowTitle(QString("GRiDISK Commander v")+_PVER_);
     QTableWidget* twig[] = {ui->tableWidget, ui->tableWidget_2};
@@ -723,9 +720,9 @@ void MainWindow::Copy(){
             return;
         size_t needs = 0;
         if (checkFreeSp(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk], inodeon[acdisk], called, &needs) == -1) {
-            size_t free = ccos_calc_free_space(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk]);
+            size_t frsp = ccos_calc_free_space(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk]);
             QMessageBox::critical(this, "Not enough space",
-                            QString("Requires %1 bytes of additional disk space to copy").arg(needs-free));
+                            QString("Requires %1 bytes of additional disk space to copy").arg(needs-frsp));
             return;
         }
         for (int t = 0; t < called.size(); t+=7){
@@ -785,9 +782,9 @@ void MainWindow::CopyLoc(){
 
         size_t needs = 0;
         if (checkFreeSp(ccdesc[acdisk], dat[acdisk], siz[acdisk], inodeon[acdisk], called, &needs) == -1) {
-            size_t free = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+            size_t frsp = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
             QMessageBox::critical(this, "Not enough space",
-                            QString("Requires %1 bytes of additional disk space to copy").arg(needs-free));
+                            QString("Requires %1 bytes of additional disk space to copy").arg(needs-frsp));
             return;
         }
 
@@ -1078,63 +1075,100 @@ void MainWindow::LoadImg(QString path){
     if (readFileQt(path, &dat[acdisk], &siz[acdisk], this) == -1)
         return;
 
-    ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
-    if (root == NULL){
-        if (siz[acdisk] > 0x200 && dat[acdisk][0x1FE] == 0x55 && dat[acdisk][0x1FF] == 0xAA){ //MBR detected
-            hdddat[acdisk] = dat[acdisk];
-            hddsiz[acdisk] = siz[acdisk];
+    ccos_inode_t* root;
 
-            mbr_part_t parts[4] = {0, 0, 0, 0};
-            int grids = parseMbr(hdddat[acdisk], parts);
+    if (siz[acdisk] > 0x200 && dat[acdisk][0x1FE] == 0x55 && dat[acdisk][0x1FF] == 0xAA){ // MBR detected - HDD
+        hdddat[acdisk] = dat[acdisk];
+        hddsiz[acdisk] = siz[acdisk];
 
-            if (grids == 0){
-                QMessageBox::critical(this, "No GRiD partitions",
-                                      "No GRiD partitions found on the disk!");
+        mbr_part_t parts[4] = {0, 0, 0, 0};
+        int grids = parseMbr(hdddat[acdisk], parts);
+
+        if (grids == 0){
+            QMessageBox::critical(this, "MBR: No GRiD partitions",
+                                  "No GRiD partitions found on the disk!");
+            free(hdddat[acdisk]);
+            hdddat[acdisk] = nullptr;
+            return;
+        }
+
+        chsd = new ChsDlg(this);
+        chsd->setName("MBR: Select disk partition");
+        chsd->setInfo("Hard disk with MBR detected.\nSelect the GRiD disk partition you want to work with:");
+
+        for (int i = 0; i < 4; i++){
+            if (parts[i].isgrid && parts[i].active){
+                chsd->addItem(QString("Partition %1, active").arg(i+1));
+            }
+            else if (parts[i].isgrid){
+                chsd->addItem(QString("Partition %1").arg(i+1));
+            }
+        }
+
+        if (chsd->exec() == 1){
+            int selctd = chsd->getIndex();
+            siz[acdisk] = parts[selctd].size;
+            dat[acdisk] = hdddat[acdisk]+parts[selctd].offset;
+
+            ccdesc[acdisk] = new ccfs_context_t({ 512, 0x121, 0x120 }); // Standard Floppy / HDD
+
+            root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+            if (root == NULL){
+                QMessageBox::critical(this, "Incorrect partition",
+                                      "Bad partition or non-GRiD format!");
                 free(hdddat[acdisk]);
                 hdddat[acdisk] = nullptr;
+                dat[acdisk] = nullptr;
                 return;
             }
+            hddmode[acdisk] = true;
+            HDDMenu(true);
+        }
+        else{
+            return;
+        }
+    }
+    else { // Floppy or Bubble
+        ccdesc[acdisk] = new ccfs_context_t({ 512, 0x121, 0x120 }); // Standard Floppy / HDD
+        root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+        if (root == NULL){ // Falied? Maybe it's a Bubble?
+            ccdesc[acdisk] = new ccfs_context_t({ 256, 0x3FE, 0x3FD }); // Standard Bubble
+            root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+            if (root == NULL){ // Unknown disk!
+                QMessageBox msgBox(this);
+                msgBox.setIcon(QMessageBox::Question);
+                msgBox.setText("Failed to automatically detect image type!\n"
+                               "Image may be broken, have non-GRiD format or custom parameters.\n"
+                               "Do you want to set these parameters manually or cancel operation?");
+                msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+                msgBox.setDefaultButton(QMessageBox::No);
+                if (msgBox.exec() != QMessageBox::Yes)
+                    return;
 
-            chsd = new ChsDlg(this);
-            chsd->setName("Select disk partition");
-            chsd->setInfo("Hard disk with MBR detected.\nSelect the GRiD disk partition you want to work with:");
+                cstdlg = new CustDlg(this);
+                cstdlg->OpenMode();
 
-            for (int i = 0; i < 4; i++){
-                if (parts[i].isgrid && parts[i].active){
-                    chsd->addItem(QString("Partition %1, active").arg(i+1));
+                if (cstdlg->exec() == 1) {
+                    uint16_t isize, sect, subl;
+                    cstdlg->GetParams(&isize, &sect, &subl);
+
+                    ccdesc[acdisk] = new ccfs_context_t({ sect, subl, static_cast<uint16_t>(subl-1) });
+
+                    root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+                    if (root == NULL){
+                        QMessageBox::critical(this, "Failed to open",
+                                              "Failed to open this file with specified parameters!");
+                        free(hdddat[acdisk]);
+                        dat[acdisk] = nullptr;
+                        return;
+                    }
                 }
-                else if (parts[i].isgrid){
-                    chsd->addItem(QString("Partition %1").arg(i+1));
-                }
-            }
-
-            if (chsd->exec() == 1){
-                int selctd = chsd->getIndex();
-                siz[acdisk] = parts[selctd].size;
-                dat[acdisk] = hdddat[acdisk]+parts[selctd].offset;
-
-                root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
-                if (root == NULL){
-                    QMessageBox::critical(this, "Incorrect Image File",
-                                          "Image broken or have non-GRiD format!");
-                    free(hdddat[acdisk]);
-                    hdddat[acdisk] = nullptr;
+                else {
+                    free(dat[acdisk]);
                     dat[acdisk] = nullptr;
                     return;
                 }
-                hddmode[acdisk] = true;
-                HDDMenu(true);
             }
-            else{
-                return;
-            }
-        }
-        else{
-            QMessageBox::critical(this, "Incorrect Image File",
-                                  "Image broken or have non-GRiD format!");
-            free(dat[acdisk]);
-            dat[acdisk] = nullptr;
-            return;
         }
     }
 
@@ -1158,10 +1192,10 @@ void MainWindow::MakeDir(){
             if (name == "")
                 break;
             else if (validString(name, true, this) != -1){
-                size_t free = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
-                if (free < 1024) {
+                size_t frsp = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+                if (frsp < 1024) {
                     QMessageBox::critical(this, "Not enough space",
-                                    QString("Requires %1 bytes of additional disk space to make dir!").arg(1024-free));
+                                    QString("Requires %1 bytes of additional disk space to make dir!").arg(1024-frsp));
                     break;
                 }
                 ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
