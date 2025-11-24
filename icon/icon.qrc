@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/icon">
         <file>gridisk.png</file>
+        <file>gridsmall.png</file>
     </qresource>
 </RCC>
