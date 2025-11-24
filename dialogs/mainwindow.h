@@ -9,6 +9,7 @@
 #include <vector>
 #include "ui_mainwindow.h"
 #include "abdlg.h"
+#include "custdlg.h"
 #include "chsedlg.h"
 #include "datedlg.h"
 #include "rendlg.h"
@@ -61,6 +62,7 @@ public slots:
     void Label();
     void MakeDir();
     void New();
+    void NewCustom();
     void OpenImg();
     void Rename();
     void Save();
@@ -71,20 +73,21 @@ public slots:
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    bool isop[2] = {0}, nrot[2] = {0};
+    bool isop[2] = {false}, nrot[2] = {false};
     uint8_t* dat[2] = {NULL};
     size_t siz[2] = {0};
-    bool acdisk = 0;
+    bool acdisk = false;
     QString name[2];
-    bool hddmode[2] = {0};
+    bool hddmode[2] = {false};
     uint8_t* hdddat[2] = {NULL};
     size_t hddsiz[2] = {0};
-    bool oneimg = 0;
+    bool oneimg = false;
+    ccfs_handle ccdesc[2] = {NULL};
 private:
-    ccfs_handle ccfs_ctx;
     Ui::MainWindow *ui;
     AbDlg *abss;
     ChsDlg *chsd;
+    CustDlg *cstdlg;
     DateDlg *datd;
     RenDlg *rnam;
     VerDlg *vdlg;

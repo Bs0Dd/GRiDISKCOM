@@ -378,7 +378,8 @@ int saveBox(QString disk, QWidget* parent){
 //[Service functions]
 
 MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(new Ui::MainWindow){
-    ccfs_ctx = new ccfs_context_t({ 512, 0x121, 0x120 });
+    ccdesc[0] = new ccfs_context_t({ 512, 0x121, 0x120 }); // !!!TODO!!!: Make context only when disk opened,
+    ccdesc[1] = new ccfs_context_t({ 512, 0x121, 0x120 }); //             using correct image parameters.
 
     ui->setupUi(this);
 
@@ -460,6 +461,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(new Ui::MainWin
     connect(ui->actionExtract_all, SIGNAL(triggered()), this, SLOT(ExtractAll()));
     connect(ui->actionMake_dir, SIGNAL(triggered()), this, SLOT(MakeDir()));
     connect(ui->actionNew, SIGNAL(triggered()), this, SLOT(New()));
+    connect(ui->actionNewCustom, SIGNAL(triggered()), this, SLOT(NewCustom()));
     connect(ui->actionOpen, SIGNAL(triggered()), this, SLOT(OpenImg()));
     connect(ui->actionRename, SIGNAL(triggered()), this, SLOT(Rename()));
     connect(ui->actionSave, SIGNAL(triggered()), this, SLOT(Save()));
@@ -490,15 +492,15 @@ void MainWindow::Add(){
 }
 
 void MainWindow::AddDirs(QStringList dirs){
-    ccos_inode_t* root = ccos_get_root_dir(ccfs_ctx, dat[acdisk], siz[acdisk]);
+    ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
     for (int i = 0; i < dirs.size(); i++){
-        size_t frees = ccos_calc_free_space(ccfs_ctx, dat[acdisk], siz[acdisk]);
+        size_t frees = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
         if (frees < 1024) {
             QMessageBox::critical(this, "Not enough space",
                             QString("Requires %1 bytes of additional disk space to make dir!").arg(1024-frees));
             break;
         }
-        ccos_inode_t* newdir = ccos_create_dir(ccfs_ctx, root, QFileInfo(dirs[i]).fileName().toStdString().c_str(),
+        ccos_inode_t* newdir = ccos_create_dir(ccdesc[acdisk], root, QFileInfo(dirs[i]).fileName().toStdString().c_str(),
                                                dat[acdisk], siz[acdisk]);
         if (newdir == NULL){
             QMessageBox::critical(this, "Failed to create folder",
@@ -516,14 +518,14 @@ void MainWindow::AddDirs(QStringList dirs){
     }
     if (!dirs.empty()){
         isch[acdisk] = true;
-        fillTable(ccfs_ctx, curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+        fillTable(ccdesc[acdisk], curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
 }
 
 int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
-    size_t needs= 0;
-    if (checkFreeSp(ccfs_ctx, dat[acdisk], siz[acdisk], files, &needs) == -1) {
-        size_t free = ccos_calc_free_space(ccfs_ctx, dat[acdisk], siz[acdisk]);
+    size_t needs = 0;
+    if (checkFreeSp(ccdesc[acdisk], dat[acdisk], siz[acdisk], files, &needs) == -1) {
+        size_t free = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
         QMessageBox::critical(this, "Not enough space",
                         QString("Requires %1 bytes of additional disk space to add!").arg(needs-free));
         return -1;
@@ -558,15 +560,15 @@ int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
             }
         }
         if (read_file_qt(files[i], &fdat, &fsiz, this) == 0){
-            if (ccos_add_file(ccfs_ctx, copyTo, fdat, fsiz, fname.c_str(), dat[acdisk], siz[acdisk]) == NULL){
+            if (ccos_add_file(ccdesc[acdisk], copyTo, fdat, fsiz, fname.c_str(), dat[acdisk], siz[acdisk]) == NULL){
                 QMessageBox::critical(this, "Error",
                                 QString("Can't add \"%1\" to the image! Skipping...").arg(fname.c_str()));
             }
         }
     }
     if (files.size() != 0){
-        isch[acdisk]= 1;
-        fillTable(ccfs_ctx, curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+        isch[acdisk] = 1;
+        fillTable(ccdesc[acdisk], curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
     return 0;
 }
@@ -612,7 +614,7 @@ void MainWindow::AnotherPart(bool fromMenu){
         siz[topan] = parts[selctd].size;
         dat[topan] = hdddat[usedisk]+parts[selctd].offset;
 
-        ccos_inode_t* root = ccos_get_root_dir(ccfs_ctx, dat[topan], siz[topan]);
+        ccos_inode_t* root = ccos_get_root_dir(ccdesc[topan], dat[topan], siz[topan]);
         if (root == NULL){
             QMessageBox::critical(this, "Incorrect Image File",
                                   "Image broken or have non-GRiD format!");
@@ -633,7 +635,7 @@ void MainWindow::AnotherPart(bool fromMenu){
             hdddat[topan] = hdddat[!topan];
         }
 
-        fillTable(ccfs_ctx, root, 0, dat[topan], siz[topan], topan, ui);
+        fillTable(ccdesc[topan], root, 0, dat[topan], siz[topan], topan, ui);
     }
 }
 
@@ -721,8 +723,8 @@ void MainWindow::Copy(){
         if (msgBox.exec() != QMessageBox::Yes)
             return;
         size_t needs = 0;
-        if (checkFreeSp(ccfs_ctx, dat[!acdisk], siz[!acdisk], inodeon[acdisk], called, &needs) == -1) {
-            size_t free = ccos_calc_free_space(ccfs_ctx, dat[!acdisk], siz[!acdisk]);
+        if (checkFreeSp(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk], inodeon[acdisk], called, &needs) == -1) {
+            size_t free = ccos_calc_free_space(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk]);
             QMessageBox::critical(this, "Not enough space",
                             QString("Requires %1 bytes of additional disk space to copy").arg(needs-free));
             return;
@@ -731,14 +733,14 @@ void MainWindow::Copy(){
             if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()])) {
-                if (ccos_file_id(curdir[!acdisk]) != ccos_file_id(ccos_get_root_dir(ccfs_ctx, dat[!acdisk], siz[!acdisk]))) {
+                if (ccos_file_id(curdir[!acdisk]) != ccos_file_id(ccos_get_root_dir(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk]))) {
                     QMessageBox::critical(this, "Copying to non-root",
                                     "Folders can be copied only to root folder!");
                     return;
                 }
                 char newname[CCOS_MAX_FILE_NAME] = {};
                 ccos_parse_file_name(inodeon[acdisk][called[t]->row()], newname, NULL, NULL, NULL);
-                ccos_inode_t* newdir = ccos_create_dir(ccfs_ctx, ccos_get_root_dir(ccfs_ctx, dat[!acdisk], siz[!acdisk]), newname,
+                ccos_inode_t* newdir = ccos_create_dir(ccdesc[!acdisk], ccos_get_root_dir(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk]), newname,
                         dat[!acdisk], siz[!acdisk]);
                 if (newdir == NULL){
                             QMessageBox::critical(this, "Failed to create folder",
@@ -747,24 +749,24 @@ void MainWindow::Copy(){
                 }
                 uint16_t fils = 0;
                 ccos_inode_t** dirdata = NULL;
-                ccos_get_dir_contents(ccfs_ctx, inodeon[acdisk][called[t]->row()], dat[acdisk], &fils, &dirdata);
+                ccos_get_dir_contents(ccdesc[acdisk], inodeon[acdisk][called[t]->row()], dat[acdisk], &fils, &dirdata);
                 for (int c = 0; c < fils; c++) {
-                    ccos_copy_file(ccfs_ctx, dat[!acdisk], siz[!acdisk], newdir, dat[acdisk], dirdata[c]);
+                    ccos_copy_file(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk], newdir, dat[acdisk], dirdata[c]);
                 }
             }
             else {
-                if (ccos_file_id(curdir[!acdisk]) == ccos_file_id(ccos_get_root_dir(ccfs_ctx, dat[!acdisk], siz[!acdisk]))) {
+                if (ccos_file_id(curdir[!acdisk]) == ccos_file_id(ccos_get_root_dir(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk]))) {
                     QMessageBox::critical(this, "Copying to root",
                                     "Files can be copied only to non-root folder!");
                     return;
                 }
-                ccos_copy_file(ccfs_ctx, dat[!acdisk], siz[!acdisk], curdir[!acdisk], dat[acdisk],
+                ccos_copy_file(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk], curdir[!acdisk], dat[acdisk],
                         inodeon[acdisk][called[t]->row()]);
             }
         }
         isch[!acdisk] = true;
-        fillTable(ccfs_ctx, curdir[!acdisk], nrot[!acdisk], dat[!acdisk], siz[!acdisk], !acdisk, ui);
-        fillTable(ccfs_ctx, curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+        fillTable(ccdesc[!acdisk], curdir[!acdisk], nrot[!acdisk], dat[!acdisk], siz[!acdisk], !acdisk, ui);
+        fillTable(ccdesc[acdisk], curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
 }
 
@@ -783,8 +785,8 @@ void MainWindow::CopyLoc(){
             return;
 
         size_t needs = 0;
-        if (checkFreeSp(ccfs_ctx, dat[acdisk], siz[acdisk], inodeon[acdisk], called, &needs) == -1) {
-            size_t free = ccos_calc_free_space(ccfs_ctx, dat[acdisk], siz[acdisk]);
+        if (checkFreeSp(ccdesc[acdisk], dat[acdisk], siz[acdisk], inodeon[acdisk], called, &needs) == -1) {
+            size_t free = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
             QMessageBox::critical(this, "Not enough space",
                             QString("Requires %1 bytes of additional disk space to copy").arg(needs-free));
             return;
@@ -795,11 +797,11 @@ void MainWindow::CopyLoc(){
             chsd->setName("Select the directory");
             chsd->setInfo("Select the directory where the file(s) will be copied:");
 
-            ccos_inode_t* root = ccos_get_root_dir(ccfs_ctx, dat[acdisk], siz[acdisk]);
+            ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
 
             uint16_t fils = 0;
             ccos_inode_t** dirdata = NULL;
-            ccos_get_dir_contents(ccfs_ctx, root, dat[acdisk], &fils, &dirdata);
+            ccos_get_dir_contents(ccdesc[acdisk], root, dat[acdisk], &fils, &dirdata);
 
             char basename[CCOS_MAX_FILE_NAME];
 
@@ -822,11 +824,11 @@ void MainWindow::CopyLoc(){
             for (int t = 0; t < called.size(); t+=7){
                 if (inodeon[acdisk][called[t]->row()]==0)
                     continue;
-                ccos_copy_file(ccfs_ctx, dat[acdisk], siz[acdisk], dirdata[chsd->getIndex()],
+                ccos_copy_file(ccdesc[acdisk], dat[acdisk], siz[acdisk], dirdata[chsd->getIndex()],
                         dat[acdisk], inodeon[acdisk][called[t]->row()]);
             }
             isch[acdisk] = true;
-            fillTable(ccfs_ctx, curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+            fillTable(ccdesc[acdisk], curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
         }
         else{
             for (int t = 0; t < called.size(); t+=7){
@@ -841,9 +843,9 @@ void MainWindow::CopyLoc(){
                     if (name == "")
                         break;
                     else if (validString(name, true, this) != -1){
-                        ccos_inode_t* root = ccos_get_root_dir(ccfs_ctx, dat[acdisk], siz[acdisk]);
+                        ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
 
-                        ccos_inode_t* newdir = ccos_create_dir(ccfs_ctx, root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]);
+                        ccos_inode_t* newdir = ccos_create_dir(ccdesc[acdisk], root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]);
                         if (newdir == NULL){
                             QMessageBox::critical(this, "Failed to create folder",
                                             "Program can't create a folder in the image!");
@@ -852,14 +854,14 @@ void MainWindow::CopyLoc(){
 
                         uint16_t fils = 0;
                         ccos_inode_t** dirdata = NULL;
-                        ccos_get_dir_contents(ccfs_ctx, inodeon[acdisk][called[t]->row()], dat[acdisk], &fils, &dirdata);
+                        ccos_get_dir_contents(ccdesc[acdisk], inodeon[acdisk][called[t]->row()], dat[acdisk], &fils, &dirdata);
 
                         for(int i = 0; i < fils; i++){
-                            ccos_copy_file(ccfs_ctx, dat[acdisk], siz[acdisk], newdir,
+                            ccos_copy_file(ccdesc[acdisk], dat[acdisk], siz[acdisk], newdir,
                                     dat[acdisk], dirdata[i]);
                         }
                         isch[acdisk] = true;
-                        fillTable(ccfs_ctx, curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+                        fillTable(ccdesc[acdisk], curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
                         break;
                     }
                 }
@@ -884,11 +886,11 @@ void MainWindow::Date(){
             datd->init(file->desc.name, cre, mod, exp);
             if (datd->exec()){
                 datd->retDates(&cre, &mod, &exp);
-                ccos_set_creation_date(ccfs_ctx, file, cre);
-                ccos_set_mod_date(ccfs_ctx, file, mod);
-                ccos_set_exp_date(ccfs_ctx, file, exp);
+                ccos_set_creation_date(ccdesc[acdisk], file, cre);
+                ccos_set_mod_date(ccdesc[acdisk], file, mod);
+                ccos_set_exp_date(ccdesc[acdisk], file, exp);
                 isch[acdisk] = true;
-                fillTable(ccfs_ctx, curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+                fillTable(ccdesc[acdisk], curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
             }
         }
     }
@@ -929,10 +931,10 @@ void MainWindow::Delete(){
         for (int t = 0; t< called.size(); t+=7){
             if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
-            ccos_delete_file(ccfs_ctx, dat[acdisk], siz[acdisk], inodeon[acdisk][called[t]->row()]);
+            ccos_delete_file(ccdesc[acdisk], dat[acdisk], siz[acdisk], inodeon[acdisk][called[t]->row()]);
         }
         isch[acdisk] = 1;
-        fillTable(ccfs_ctx, curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+        fillTable(ccdesc[acdisk], curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
 }
 
@@ -990,9 +992,9 @@ void MainWindow::Extract(){
             if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()]))
-                dump_dir_qt(ccfs_ctx, inodeon[acdisk][called[t]->row()], dat[acdisk], todir, this);
+                dump_dir_qt(ccdesc[acdisk], inodeon[acdisk][called[t]->row()], dat[acdisk], todir, this);
             else
-                dump_file_qt(ccfs_ctx, inodeon[acdisk][called[t]->row()], dat[acdisk], todir, this);
+                dump_file_qt(ccdesc[acdisk], inodeon[acdisk][called[t]->row()], dat[acdisk], todir, this);
         }
     }
 }
@@ -1003,7 +1005,7 @@ void MainWindow::ExtractAll(){
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
         if (todir == "")
             return;
-        int res = dump_img_qt(ccfs_ctx, dat[acdisk], siz[acdisk], todir, QFileInfo(name[acdisk]).baseName(), this);
+        int res = dump_img_qt(ccdesc[acdisk], dat[acdisk], siz[acdisk], todir, QFileInfo(name[acdisk]).baseName(), this);
         if (res == -1){
             QMessageBox::critical(this, "Unable to extract image", "Unable to extract image. Please check the path.");
         }
@@ -1041,16 +1043,16 @@ void MainWindow::Label(){
             dsk= "I";
         else
             dsk= "II";
-        char* fname = ccos_get_image_label(ccfs_ctx, dat[acdisk], siz[acdisk]);
+        char* fname = ccos_get_image_label(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
         QString nameQ = QInputDialog::getText(this, tr("New label"),
                                               QString("Set new label for the disk %1:").arg(dsk), QLineEdit::Normal, fname);
 
         if (validString(nameQ, false, this) == -1)
             return;
 
-        ccos_set_image_label(ccfs_ctx, dat[acdisk], siz[acdisk], nameQ.toStdString().c_str());
+        ccos_set_image_label(ccdesc[acdisk], dat[acdisk], siz[acdisk], nameQ.toStdString().c_str());
         isch[acdisk] = true;
-        fillTable(ccfs_ctx, curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+        fillTable(ccdesc[acdisk], curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
 }
 
@@ -1077,7 +1079,7 @@ void MainWindow::LoadImg(QString path){
     if (read_file_qt(path, &dat[acdisk], &siz[acdisk], this) == -1)
         return;
 
-    ccos_inode_t* root = ccos_get_root_dir(ccfs_ctx, dat[acdisk], siz[acdisk]);
+    ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
     if (root == NULL){
         if (siz[acdisk] > 0x200 && dat[acdisk][0x1FE] == 0x55 && dat[acdisk][0x1FF] == 0xAA){ //MBR detected
             hdddat[acdisk] = dat[acdisk];
@@ -1112,7 +1114,7 @@ void MainWindow::LoadImg(QString path){
                 siz[acdisk] = parts[selctd].size;
                 dat[acdisk] = hdddat[acdisk]+parts[selctd].offset;
 
-                root = ccos_get_root_dir(ccfs_ctx, dat[acdisk], siz[acdisk]);
+                root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
                 if (root == NULL){
                     QMessageBox::critical(this, "Incorrect Image File",
                                           "Image broken or have non-GRiD format!");
@@ -1140,7 +1142,7 @@ void MainWindow::LoadImg(QString path){
     isop[acdisk] = 1;
     name[acdisk] = path;
     curdir[acdisk] = root;
-    fillTable(ccfs_ctx, root, 0, dat[acdisk], siz[acdisk], acdisk, ui);
+    fillTable(ccdesc[acdisk], root, 0, dat[acdisk], siz[acdisk], acdisk, ui);
 }
 
 void MainWindow::MakeDir(){
@@ -1157,20 +1159,20 @@ void MainWindow::MakeDir(){
             if (name == "")
                 break;
             else if (validString(name, true, this) != -1){
-                size_t free = ccos_calc_free_space(ccfs_ctx, dat[acdisk], siz[acdisk]);
+                size_t free = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
                 if (free < 1024) {
                     QMessageBox::critical(this, "Not enough space",
                                     QString("Requires %1 bytes of additional disk space to make dir!").arg(1024-free));
                     break;
                 }
-                ccos_inode_t* root = ccos_get_root_dir(ccfs_ctx, dat[acdisk], siz[acdisk]);
-                if (ccos_create_dir(ccfs_ctx, root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]) == NULL){
+                ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+                if (ccos_create_dir(ccdesc[acdisk], root, name.toStdString().c_str(), dat[acdisk], siz[acdisk]) == NULL){
                     QMessageBox::critical(this, "Failed to create folder",
                                     "Program can't create a folder in the image!");
                     break;
                 }
                 isch[acdisk] = true;
-                fillTable(ccfs_ctx, root, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+                fillTable(ccdesc[acdisk], root, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
                 break;
             }
         }
@@ -1182,13 +1184,19 @@ void MainWindow::New(){
         if (!CloseImg()) return;
 
     siz[acdisk] = 360 * 1024;
-    dat[acdisk] = ccos_create_new_image(ccfs_ctx, 720);
+    dat[acdisk] = ccos_create_new_image(ccdesc[acdisk], 720);
 
     isch[acdisk] = true;
     isop[acdisk] = true;
-    ccos_inode_t* root = ccos_get_root_dir(ccfs_ctx, dat[acdisk], siz[acdisk]);
+    ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
     curdir[acdisk] = root;
-    fillTable(ccfs_ctx, root, false, dat[acdisk], siz[acdisk], acdisk, ui);
+    fillTable(ccdesc[acdisk], root, false, dat[acdisk], siz[acdisk], acdisk, ui);
+}
+
+void MainWindow::NewCustom(){
+    cstdlg = new CustDlg(this);
+
+    cstdlg->exec();
 }
 
 void MainWindow::OpenDir(){
@@ -1203,16 +1211,16 @@ void MainWindow::OpenDir(){
         if (dir == NULL && nrot[acdisk]== 0)
             return;
         if (called->row() == 0 && nrot[acdisk]){
-            ccos_inode_t* root = ccos_get_root_dir(ccfs_ctx, dat[acdisk], siz[acdisk]);
-            curdir[acdisk] = (ccos_get_parent_dir(ccfs_ctx, curdir[acdisk], dat[acdisk]));
+            ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+            curdir[acdisk] = (ccos_get_parent_dir(ccdesc[acdisk], curdir[acdisk], dat[acdisk]));
             if (curdir[acdisk] == root)
                 nrot[acdisk] = false;
-            fillTable(ccfs_ctx, curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+            fillTable(ccdesc[acdisk], curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
         }
         else if (!nrot[acdisk]){ //All files in the root are directories
             curdir[acdisk] = dir;
             nrot[acdisk] = true;
-            fillTable(ccfs_ctx, dir, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+            fillTable(ccdesc[acdisk], dir, nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
         }
     }
 }
@@ -1269,10 +1277,10 @@ void  MainWindow::Rename(){
                                               "File name or type can't be empty!");
                     }
                     else if (validString(newname, true, this) != -1 && validString(newtype, true, this) != -1){
-                        ccos_rename_file(ccfs_ctx, dat[acdisk], siz[acdisk], reninode, newname.toStdString().c_str(),
+                        ccos_rename_file(ccdesc[acdisk], dat[acdisk], siz[acdisk], reninode, newname.toStdString().c_str(),
                                          newtype.toStdString().c_str());
                         isch[acdisk] = true;
-                        fillTable(ccfs_ctx, ccos_get_parent_dir(ccfs_ctx, reninode, dat[acdisk]),
+                        fillTable(ccdesc[acdisk], ccos_get_parent_dir(ccdesc[acdisk], reninode, dat[acdisk]),
                                   nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
                         break;
                     }
@@ -1411,7 +1419,7 @@ void MainWindow::SetActivePart(){
             mbrtab[(selctd-1)*16] = 0x80;
 
         isch[acdisk] = true;
-        fillTable(ccfs_ctx, curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+        fillTable(ccdesc[acdisk], curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
     }
 }
 
@@ -1429,9 +1437,9 @@ void MainWindow::Version(){
             vdlg->init(file->desc.name, ver);
             if (vdlg->exec() == 1){
                 ver = vdlg->retVer();
-                ccos_set_file_version(ccfs_ctx, file, ver);
+                ccos_set_file_version(ccdesc[acdisk], file, ver);
                 isch[acdisk] = true;
-                fillTable(ccfs_ctx, curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
+                fillTable(ccdesc[acdisk], curdir[acdisk], nrot[acdisk], dat[acdisk], siz[acdisk], acdisk, ui);
             }
         }
     }

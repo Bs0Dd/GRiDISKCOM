@@ -28,7 +28,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="../icon/icon.qrc">
-    <normaloff>:/icon/gridisk.png</normaloff>:/icon/gridisk.png</iconset>
+    <normaloff>:/icon/gridsmall.png</normaloff>:/icon/gridsmall.png</iconset>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_10">
@@ -482,6 +482,7 @@
      <string>File</string>
     </property>
     <addaction name="actionNew"/>
+    <addaction name="actionNewCustom"/>
     <addaction name="actionOpen"/>
     <addaction name="actionSave"/>
     <addaction name="actionSave_as"/>
@@ -694,7 +695,7 @@
   </action>
   <action name="actionNew">
    <property name="text">
-    <string>New image (360k)</string>
+    <string>New image (360K FDD)</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+N</string>
@@ -741,6 +742,14 @@
    </property>
    <property name="text">
     <string>Change active partition</string>
+   </property>
+  </action>
+  <action name="actionNewCustom">
+   <property name="text">
+    <string>New image (custom)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+N</string>
    </property>
   </action>
  </widget>
