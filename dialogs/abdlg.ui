@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>460</width>
-    <height>480</height>
+    <height>506</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -19,13 +19,13 @@
   <property name="minimumSize">
    <size>
     <width>460</width>
-    <height>480</height>
+    <height>506</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
     <width>460</width>
-    <height>480</height>
+    <height>506</height>
    </size>
   </property>
   <property name="font">
@@ -38,7 +38,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="../icon/icon.qrc">
-    <normaloff>:/icon/gridisk.png</normaloff>:/icon/gridisk.png</iconset>
+    <normaloff>:/icon/gridsmall.png</normaloff>:/icon/gridsmall.png</iconset>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -226,19 +226,6 @@
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="label_8">
-     <property name="font">
-      <font>
-       <family>Sans Serif</family>
-       <pointsize>9</pointsize>
-      </font>
-     </property>
-     <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Bs()Dd&lt;/span&gt; - Commander coding, interface design, beginner in C++ and Qt&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-    </widget>
-   </item>
-   <item>
     <widget class="QLabel" name="label_7">
      <property name="font">
       <font>
@@ -247,7 +234,27 @@
       </font>
      </property>
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;BOOtak&lt;/span&gt; - ccos_image coding, first testing, owner of real GRiD Compass&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;http://bs0dd.net&quot;&gt;&lt;span style=&quot; font-weight:700; text-decoration: underline; color:#2980b9;&quot;&gt;Bs()Dd&lt;/span&gt;&lt;/a&gt; - Commander coding, interface design, beginner in C++ and Qt&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_8">
+     <property name="font">
+      <font>
+       <family>Sans Serif</family>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://www.youtube.com/@kogdazjasdohnu&quot;&gt;&lt;span style=&quot; font-weight:700; text-decoration: underline; color:#2980b9;&quot;&gt;BOOtak&lt;/span&gt;&lt;/a&gt; - ccos_image coding, first testing, owner of real GRiD Compass&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_9">
+     <property name="text">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;a href=&quot;https://github.com/vklachkov&quot;&gt;&lt;span style=&quot; font-weight:700; text-decoration: underline; color:#2980b9;&quot;&gt;Vklachkov&lt;/span&gt;&lt;/a&gt; - ccos_image improvement, bubble memory, another GRiD owner&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
     </widget>
    </item>

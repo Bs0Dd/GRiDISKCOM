@@ -6,10 +6,18 @@ AbDlg::AbDlg(QWidget *parent) :
 {
     ui->setupUi(this);
     ui->label_5->setText(_PVER_);
-    connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(openrepo()));
+    connect(ui->label_7, SIGNAL(linkActivated(QString)), this, SLOT(openLink(QString)));
+    connect(ui->label_8, SIGNAL(linkActivated(QString)), this, SLOT(openLink(QString)));
+    connect(ui->label_9, SIGNAL(linkActivated(QString)), this, SLOT(openLink(QString)));
+    connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(openRepo()));
 }
 
-void AbDlg::openrepo()
+void AbDlg::openLink(QString link)
+{
+    QDesktopServices::openUrl(link);
+}
+
+void AbDlg::openRepo()
 {
     QDesktopServices::openUrl(QUrl("https://github.com/Bs0Dd/GRiDISKCOM"));
 }
