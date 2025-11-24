@@ -171,8 +171,8 @@
    </property>
    <property name="dateTime">
     <datetime>
-     <hour>1</hour>
-     <minute>24</minute>
+     <hour>0</hour>
+     <minute>0</minute>
      <second>0</second>
      <year>1752</year>
      <month>9</month>
@@ -181,9 +181,6 @@
    </property>
    <property name="calendarPopup">
     <bool>true</bool>
-   </property>
-   <property name="timeSpec">
-    <enum>Qt::LocalTime</enum>
    </property>
   </widget>
   <widget class="QLabel" name="label_2">
