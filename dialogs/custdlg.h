@@ -20,6 +20,7 @@ public:
     ~CustDlg();
     void GetParams(uint16_t* isize, uint16_t* sect, uint16_t* subl);
     void SetParams(uint16_t isize, uint16_t sect, uint16_t subl);
+    void OpenMode();
 
 private:
     Ui::CustDlg *ui;

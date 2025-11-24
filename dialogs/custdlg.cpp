@@ -79,6 +79,11 @@ void CustDlg::SetParams(uint16_t isize, uint16_t sect, uint16_t subl) {
     }
 }
 
+void CustDlg::OpenMode() {
+    CustDlg::setWindowTitle("Custom image opening");
+    ui->groupBox_3->setDisabled(true);
+}
+
 
 CustDlg::~CustDlg()
 {
