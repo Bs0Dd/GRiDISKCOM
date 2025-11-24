@@ -116,7 +116,7 @@ int checkFreeSp(ccfs_handle ctx, uint8_t* data, size_t data_size, QStringList fi
 }
 
 //*Read file to uint8_t* array
-int read_file_qt(QString path, uint8_t** file_data, size_t* file_size, QWidget* parent){
+int readFileQt(QString path, uint8_t** file_data, size_t* file_size, QWidget* parent){
     QFileInfo ilfile(path);
     if (!ilfile.exists()){
         QMessageBox::critical(parent, "Invalid path",
@@ -162,7 +162,7 @@ int read_file_qt(QString path, uint8_t** file_data, size_t* file_size, QWidget* 
 }
 
 //*Write file from uint8_t* array
-int save_file_qt(QString path, uint8_t* file_data, size_t file_size, QWidget* parent){
+int saveFileQt(QString path, uint8_t* file_data, size_t file_size, QWidget* parent){
     QFile lfile(path);
     if (!lfile.open(QIODevice::WriteOnly)){
         QMessageBox::critical(parent, "Unable to open/create file",
@@ -182,7 +182,7 @@ int save_file_qt(QString path, uint8_t* file_data, size_t file_size, QWidget* pa
 }
 
 //*Dump file from image to path
-int dump_file_qt(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, QString path, QWidget* parent){
+int dumpFileQt(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, QString path, QWidget* parent){
     char* fnam = short_string_to_string(ccos_get_file_name(file));
     replace_char_in_place(fnam, '/', '_');
 
@@ -200,7 +200,7 @@ int dump_file_qt(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, QString pat
 
     free(fnam);
 
-    if (save_file_qt(fpath, file_data, file_size, parent) == -1){
+    if (saveFileQt(fpath, file_data, file_size, parent) == -1){
         free(file_data);
         return -1;
     }
@@ -210,7 +210,7 @@ int dump_file_qt(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, QString pat
 }
 
 //*Dump dir from image to path
-int dump_dir_qt(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data, QString path, QWidget* parent){
+int dumpDirQt(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data, QString path, QWidget* parent){
     char name[CCOS_MAX_FILE_NAME];
     memset(name, 0, CCOS_MAX_FILE_NAME);
     ccos_parse_file_name(dir, name, NULL, NULL, NULL);
@@ -230,9 +230,9 @@ int dump_dir_qt(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data, QString path,
 
     for(int i = 0; i < fils; i++){
         if (ccos_is_dir(dirdata[i]))
-            dump_dir_qt(ctx, dirdata[i], data, dpath, parent);
+            dumpDirQt(ctx, dirdata[i], data, dpath, parent);
         else
-            dump_file_qt(ctx, dirdata[i], data, dpath, parent);
+            dumpFileQt(ctx, dirdata[i], data, dpath, parent);
     }
 
     free(dirdata);
@@ -240,7 +240,7 @@ int dump_dir_qt(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data, QString path,
 }
 
 //*Dump full image to path
-int dump_img_qt(ccfs_handle ctx, uint8_t* data, size_t data_size, QString path, QString altname, QWidget* parent){
+int dumpImgQt(ccfs_handle ctx, uint8_t* data, size_t data_size, QString path, QString altname, QWidget* parent){
     ccos_inode_t* root_dir = ccos_get_root_dir(ctx, data, data_size);
     if (root_dir == NULL) {
         QMessageBox::critical(parent, "Failed to dump image",
@@ -268,7 +268,7 @@ int dump_img_qt(ccfs_handle ctx, uint8_t* data, size_t data_size, QString path, 
             return -1;
     }
 
-    return dump_dir_qt(ctx, root_dir, data, dpath, parent);
+    return dumpDirQt(ctx, root_dir, data, dpath, parent);
 }
 
 //*Check if string is valid for CCOS (does not contain unicode and reserved characters)
@@ -559,7 +559,7 @@ int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
                     return -1;
             }
         }
-        if (read_file_qt(files[i], &fdat, &fsiz, this) == 0){
+        if (readFileQt(files[i], &fdat, &fsiz, this) == 0){
             if (ccos_add_file(ccdesc[acdisk], copyTo, fdat, fsiz, fname.c_str(), dat[acdisk], siz[acdisk]) == NULL){
                 QMessageBox::critical(this, "Error",
                                 QString("Can't add \"%1\" to the image! Skipping...").arg(fname.c_str()));
@@ -992,9 +992,9 @@ void MainWindow::Extract(){
             if (inodeon[acdisk][called[t]->row()]==0)
                 continue;
             if (ccos_is_dir(inodeon[acdisk][called[t]->row()]))
-                dump_dir_qt(ccdesc[acdisk], inodeon[acdisk][called[t]->row()], dat[acdisk], todir, this);
+                dumpDirQt(ccdesc[acdisk], inodeon[acdisk][called[t]->row()], dat[acdisk], todir, this);
             else
-                dump_file_qt(ccdesc[acdisk], inodeon[acdisk][called[t]->row()], dat[acdisk], todir, this);
+                dumpFileQt(ccdesc[acdisk], inodeon[acdisk][called[t]->row()], dat[acdisk], todir, this);
         }
     }
 }
@@ -1005,7 +1005,7 @@ void MainWindow::ExtractAll(){
                                                           QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
         if (todir == "")
             return;
-        int res = dump_img_qt(ccdesc[acdisk], dat[acdisk], siz[acdisk], todir, QFileInfo(name[acdisk]).baseName(), this);
+        int res = dumpImgQt(ccdesc[acdisk], dat[acdisk], siz[acdisk], todir, QFileInfo(name[acdisk]).baseName(), this);
         if (res == -1){
             QMessageBox::critical(this, "Unable to extract image", "Unable to extract image. Please check the path.");
         }
@@ -1076,7 +1076,7 @@ void MainWindow::LoadImg(QString path){
         }
     }
 
-    if (read_file_qt(path, &dat[acdisk], &siz[acdisk], this) == -1)
+    if (readFileQt(path, &dat[acdisk], &siz[acdisk], this) == -1)
         return;
 
     ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
@@ -1306,10 +1306,10 @@ void MainWindow::Save(){
 
         int res;
         if (hddmode[acdisk]){
-            res = save_file_qt(name[acdisk], hdddat[acdisk], hddsiz[acdisk], this);
+            res = saveFileQt(name[acdisk], hdddat[acdisk], hddsiz[acdisk], this);
         }
         else{
-            res = save_file_qt(name[acdisk], dat[acdisk], siz[acdisk], this);
+            res = saveFileQt(name[acdisk], dat[acdisk], siz[acdisk], this);
         }
 
         if (res == -1){
@@ -1337,10 +1337,10 @@ void MainWindow::SaveAs(){
 
         int res;
         if (hddmode[acdisk]){
-            res = save_file_qt(nameQ, hdddat[acdisk], hddsiz[acdisk], this);
+            res = saveFileQt(nameQ, hdddat[acdisk], hddsiz[acdisk], this);
         }
         else{
-            res = save_file_qt(nameQ, dat[acdisk], siz[acdisk], this);
+            res = saveFileQt(nameQ, dat[acdisk], siz[acdisk], this);
         }
 
         if (res == -1){
