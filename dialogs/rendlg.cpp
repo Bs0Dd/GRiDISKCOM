@@ -1,10 +1,11 @@
 #include "rendlg.h"
 
-RenDlg::RenDlg(QWidget *parent) :
+RenDlg::RenDlg(QWidget *parent, bool lockedType) :
     QDialog(parent),
     ui(new Ui::RenDlg)
 {
     ui->setupUi(this);
+    ui->lineEdit_2->setDisabled(lockedType);
 }
 
 QString RenDlg::getName(){
@@ -13,10 +14,6 @@ QString RenDlg::getName(){
 
 QString RenDlg::getType(){
     return ui->lineEdit_2->text();
-}
-
-void RenDlg::lockType(bool swch){
-    ui->lineEdit_2->setDisabled(swch);
 }
 
 void RenDlg::setInfo(QString text){

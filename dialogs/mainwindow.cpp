@@ -283,7 +283,7 @@ int dumpImgQt(ccfs_handle ctx, uint8_t* data, size_t data_size, QString path, QS
 int validString(QString string, bool ifpath, QWidget* parent){
     for (int i = 0; i < string.size(); i++){
         if (string[i] > 256 || (ifpath && (string[i] == '`' || string[i] == '|' || string[i] == '~'))){
-            QMessageBox::critical(parent, "Incorrect characters", "Invalid character(s) were found! Take them away.");
+            QMessageBox::critical(parent, "Incorrect characters", "Invalid character(s) were found! Remove them.");
             return -1;
         }
     }
@@ -1187,12 +1187,11 @@ void MainWindow::LoadImg(QString path){
                 if (msgBox.exec() != QMessageBox::Yes)
                     return;
 
-                cstdlg = new CustDlg(this);
-                cstdlg->OpenMode();
+                cstdlg = new CustDlg(this, true);
 
                 if (cstdlg->exec() == 1) {
-                    uint16_t isize, sect, subl;
-                    cstdlg->GetParams(&isize, &sect, &subl);
+                    uint16_t sect, subl;
+                    cstdlg->GetParams(&sect, &subl, NULL, NULL);
 
                     ccdesc[acdisk] = new ccfs_context_t({ sect, subl, static_cast<uint16_t>(subl-1) });
 
@@ -1265,25 +1264,41 @@ void MainWindow::NewImage(){
 
     cstdlg = new CustDlg(this);
 
-    if (cstdlg->exec() == 1) {
-        uint16_t isize, sect, subl;
-        cstdlg->GetParams(&isize, &sect, &subl);
+    while (true){
+        if (cstdlg->exec() == 1) {
+            uint16_t sect, subl, isize;
+            QString labl;
+            cstdlg->GetParams(&sect, &subl, &isize, &labl);
 
-        ccdesc[acdisk] = new ccfs_context_t({ sect, subl, static_cast<uint16_t>(subl-1) });
+            if (labl != "" && validString(labl, false, this) == -1) {
+                continue;
+            }
 
-        siz[acdisk] = isize * 1024;
+            ccdesc[acdisk] = new ccfs_context_t({ sect, subl, static_cast<uint16_t>(subl-1) });
 
-        if (ccos_create_new_image(ccdesc[acdisk], (isize * (1024 / sect)), &dat[acdisk]) != 0) {
-            QMessageBox::critical(this, "Creation error",
-                            "Program can't create new image!");
-            return;
+            siz[acdisk] = isize * 1024;
+
+            if (ccos_create_new_image(ccdesc[acdisk], (isize * (1024 / sect)), &dat[acdisk]) != 0) {
+                QMessageBox::critical(this, "Creation error",
+                                "Program can't create new image!");
+                return;
+            }
+
+
+            if (labl != "") {
+                ccos_set_image_label(ccdesc[acdisk], dat[acdisk], siz[acdisk], labl.toStdString().c_str());
+            }
+
+            isch[acdisk] = true;
+            isop[acdisk] = true;
+            ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+            curdir[acdisk] = root;
+            fillTable(ccdesc[acdisk], root, false, dat[acdisk], siz[acdisk], acdisk, ui);
+            break;
         }
-
-        isch[acdisk] = true;
-        isop[acdisk] = true;
-        ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
-        curdir[acdisk] = root;
-        fillTable(ccdesc[acdisk], root, false, dat[acdisk], siz[acdisk], acdisk, ui);
+        else{
+            break;
+        }
     }
 }
 
@@ -1345,13 +1360,10 @@ void  MainWindow::Rename(){
             memset(basename, 0, CCOS_MAX_FILE_NAME);
             memset(type, 0, CCOS_MAX_FILE_NAME);
             ccos_parse_file_name(reninode, basename, type, NULL, NULL);
-            rnam = new RenDlg(this);
+            rnam = new RenDlg(this, !nrot[acdisk]); //All files in the root are directories
             rnam->setName(basename);
             rnam->setType(type);
             rnam->setInfo((QString("Set new name and type for %1:").arg(reninode->desc.name)));
-            if (!nrot[acdisk]){ //All files in the root are directories
-                rnam->lockType(1);
-            }
             while (true){
                 if (rnam->exec() == 1){
                     QString newname = rnam->getName();

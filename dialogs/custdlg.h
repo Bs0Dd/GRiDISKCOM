@@ -16,11 +16,9 @@ public slots:
     void SizFocus(bool activ);
 
 public:
-    explicit CustDlg(QWidget *parent = nullptr);
+    explicit CustDlg(QWidget *parent = nullptr, bool openMode = false);
     ~CustDlg();
-    void GetParams(uint16_t* isize, uint16_t* sect, uint16_t* subl);
-    void SetParams(uint16_t isize, uint16_t sect, uint16_t subl);
-    void OpenMode();
+    void GetParams(uint16_t* sect, uint16_t* subl, uint16_t* isize, QString* labl);
 
 private:
     Ui::CustDlg *ui;

@@ -12,10 +12,9 @@ class RenDlg : public QDialog
     Q_OBJECT
 
 public:
-    explicit RenDlg(QWidget *parent = nullptr);
+    explicit RenDlg(QWidget *parent = nullptr, bool lockedType = false);
     QString getName();
     QString getType();
-    void lockType(bool swch);
     void setInfo(QString text);
     void setName(QString text);
     void setType(QString text);

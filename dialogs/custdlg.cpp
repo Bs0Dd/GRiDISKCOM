@@ -1,7 +1,7 @@
 #include "custdlg.h"
 #include "ui_custdlg.h"
 
-CustDlg::CustDlg(QWidget *parent) :
+CustDlg::CustDlg(QWidget *parent, bool openMode) :
     QDialog(parent),
     ui(new Ui::CustDlg)
 {
@@ -13,6 +13,14 @@ CustDlg::CustDlg(QWidget *parent) :
 
     connect(ui->radioButton_5, SIGNAL(toggled(bool)), this, SLOT(SblFocus(bool)));
     connect(ui->radioButton_9, SIGNAL(toggled(bool)), this, SLOT(SizFocus(bool)));
+
+    if (openMode) {
+        ui->groupBox_3->setVisible(false);
+        ui->groupBox_4->setVisible(false);
+        CustDlg::setWindowTitle("Custom image opening");
+        CustDlg::setMinimumHeight(245);
+        CustDlg::setMaximumHeight(245);
+    }
 }
 
 void CustDlg::SblFocus(bool activ) {
@@ -32,7 +40,7 @@ void CustDlg::SizFocus(bool activ) {
 }
 
 
-void CustDlg::GetParams(uint16_t* isize, uint16_t* sect, uint16_t* subl) {
+void CustDlg::GetParams(uint16_t* sect, uint16_t* subl, uint16_t* isize, QString* labl) {
     *sect = ui->radioButton->isChecked() ? 512 : 256;
 
     if (ui->radioButton_3->isChecked()) {
@@ -45,43 +53,24 @@ void CustDlg::GetParams(uint16_t* isize, uint16_t* sect, uint16_t* subl) {
         *subl = ui->spinBox->value();
     }
 
-    if (ui->radioButton_6->isChecked()) {
-        *isize = 360;
-    }
-    else if (ui->radioButton_7->isChecked()) {
-        *isize = 384;
-    }
-    else if (ui->radioButton_8->isChecked()) {
-        *isize = 720;
-    }
-    else {
-        *isize = ui->spinBox_2->value() * 1024;
-    }
-}
-
-void CustDlg::SetParams(uint16_t isize, uint16_t sect, uint16_t subl) {
-    ui->radioButton->setChecked(sect == 512);
-    ui->radioButton_2->setChecked(sect == 256);
-
-    ui->radioButton_3->setChecked(subl == 0x121);
-    ui->radioButton_4->setChecked(subl == 0x3FE);
-    if ((subl != 0x121) && (subl != 0x3FE)) {
-        ui->radioButton_5->setChecked(true);
-        ui->spinBox->setValue(subl);
+    if (isize != NULL) {
+        if (ui->radioButton_6->isChecked()) {
+            *isize = 360;
+        }
+        else if (ui->radioButton_7->isChecked()) {
+            *isize = 384;
+        }
+        else if (ui->radioButton_8->isChecked()) {
+            *isize = 720;
+        }
+        else {
+            *isize = ui->spinBox_2->value();
+        }
     }
 
-    ui->radioButton_6->setChecked(isize == 360);
-    ui->radioButton_7->setChecked(isize == 384);
-    ui->radioButton_8->setChecked(isize == 720);
-    if ((isize != 360) && (isize != 384) && (isize != 720)) {
-        ui->radioButton_9->setChecked(true);
-        ui->spinBox_2->setValue(subl);
+    if (labl != NULL) {
+        *labl = ui->lineEdit->text();
     }
-}
-
-void CustDlg::OpenMode() {
-    CustDlg::setWindowTitle("Custom image opening");
-    ui->groupBox_3->setDisabled(true);
 }
 
 
