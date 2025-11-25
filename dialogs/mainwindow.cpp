@@ -77,7 +77,10 @@ int tildaCheck(string parse_str){
 int checkFreeSp(ccfs_handle ctx, uint8_t* data, size_t data_size, vector<ccos_inode_t*> inodeList,
                 QList<QTableWidgetItem *> calledElems, size_t* needs){ //*For copy
 
-    size_t frsp = ccos_calc_free_space(ctx, data, data_size);
+    size_t frsp;
+    if (ccos_calc_free_space(ctx, data, data_size, &frsp) != 0){
+        return -2;
+    }
     *needs = 0;
     for (int i = 0; i < calledElems.size(); i+=6){
         ccos_inode_t* file = inodeList[calledElems[i]->row()];
@@ -104,7 +107,10 @@ int checkFreeSp(ccfs_handle ctx, uint8_t* data, size_t data_size, vector<ccos_in
 }
 
 int checkFreeSp(ccfs_handle ctx, uint8_t* data, size_t data_size, QStringList files, size_t* needs){ //*For add
-    size_t frsp = ccos_calc_free_space(ctx, data, data_size);
+    size_t frsp;
+    if (ccos_calc_free_space(ctx, data, data_size, &frsp) != 0){
+        return -2;
+    }
     *needs = 0;
     for (int i = 0; i < files.size(); i++) {
         *needs += QFileInfo(files[i]).size();
@@ -331,7 +337,14 @@ void fillTable(ccfs_handle ctx, ccos_inode_t* directory, bool noRoot, uint8_t* d
         inodeon[curdisk].push_back(dirdata[c]);
         addFile(tableWidget, text);
     }
-    size_t free_space = ccos_calc_free_space(ctx, dat, siz);
+
+    size_t free_space;
+    if (ccos_calc_free_space(ctx, dat, siz, &free_space) != 0){
+        label->setText("Free space: FAILED TO CALCULATE!");
+        free(dirdata);
+        return;
+    }
+
     msg = "Free space: %1 bytes.";
     label->setText(msg.arg(free_space));
     if (inodeon[curdisk].size()==0){
@@ -490,7 +503,13 @@ void MainWindow::Add(){
 void MainWindow::AddDirs(QStringList dirs){
     ccos_inode_t* root = ccos_get_root_dir(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
     for (int i = 0; i < dirs.size(); i++){
-        size_t frees = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+        size_t frees;
+        if (ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk], &frees) != 0){
+            QMessageBox::critical(this, "Calculation error",
+                            "Program can't calculate free space in the image!");
+            break;
+        }
+
         if (frees < 1024) {
             QMessageBox::critical(this, "Not enough space",
                             QString("Requires %1 bytes of additional disk space to make dir!").arg(1024-frees));
@@ -520,8 +539,15 @@ void MainWindow::AddDirs(QStringList dirs){
 
 int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
     size_t needs = 0;
-    if (checkFreeSp(ccdesc[acdisk], dat[acdisk], siz[acdisk], files, &needs) == -1) {
-        size_t free = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+    int retop = checkFreeSp(ccdesc[acdisk], dat[acdisk], siz[acdisk], files, &needs);
+    if (retop == -2) {
+        QMessageBox::critical(this, "Calculation error",
+                        "Program can't calculate free space in the image!");
+        return -1;
+    }
+    else if (retop == -1) {
+        size_t free = 0;
+        ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk], &free);
         QMessageBox::critical(this, "Not enough space",
                         QString("Requires %1 bytes of additional disk space to add!").arg(needs-free));
         return -1;
@@ -719,8 +745,15 @@ void MainWindow::Copy(){
         if (msgBox.exec() != QMessageBox::Yes)
             return;
         size_t needs = 0;
-        if (checkFreeSp(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk], inodeon[acdisk], called, &needs) == -1) {
-            size_t frsp = ccos_calc_free_space(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk]);
+        int retop = checkFreeSp(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk], inodeon[acdisk], called, &needs);
+        if (retop == -2) {
+            QMessageBox::critical(this, "Calculation error",
+                            "Program can't calculate free space in the image!");
+            return;
+        }
+        else if (retop == -1) {
+            size_t frsp;
+            ccos_calc_free_space(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk], &frsp);
             QMessageBox::critical(this, "Not enough space",
                             QString("Requires %1 bytes of additional disk space to copy").arg(needs-frsp));
             return;
@@ -781,8 +814,15 @@ void MainWindow::CopyLoc(){
             return;
 
         size_t needs = 0;
-        if (checkFreeSp(ccdesc[acdisk], dat[acdisk], siz[acdisk], inodeon[acdisk], called, &needs) == -1) {
-            size_t frsp = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+        int retop = checkFreeSp(ccdesc[acdisk], dat[acdisk], siz[acdisk], inodeon[acdisk], called, &needs);
+        if (retop == -2) {
+            QMessageBox::critical(this, "Calculation error",
+                            "Program can't calculate free space in the image!");
+            return;
+        }
+        else if (retop == -1) {
+            size_t frsp;
+            ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk], &frsp);
             QMessageBox::critical(this, "Not enough space",
                             QString("Requires %1 bytes of additional disk space to copy").arg(needs-frsp));
             return;
@@ -1192,7 +1232,12 @@ void MainWindow::MakeDir(){
             if (name == "")
                 break;
             else if (validString(name, true, this) != -1){
-                size_t frsp = ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk]);
+                size_t frsp;
+                if (ccos_calc_free_space(ccdesc[acdisk], dat[acdisk], siz[acdisk], &frsp) != 0) {
+                    QMessageBox::critical(this, "Calculation error",
+                                    "Program can't calculate free space in the image!");
+                    break;
+                }
                 if (frsp < 1024) {
                     QMessageBox::critical(this, "Not enough space",
                                     QString("Requires %1 bytes of additional disk space to make dir!").arg(1024-frsp));
@@ -1225,7 +1270,12 @@ void MainWindow::NewImage(){
         ccdesc[acdisk] = new ccfs_context_t({ sect, subl, static_cast<uint16_t>(subl-1) });
 
         siz[acdisk] = isize * 1024;
-        dat[acdisk] = ccos_create_new_image(ccdesc[acdisk], (isize * (1024 / sect)));
+
+        if (ccos_create_new_image(ccdesc[acdisk], (isize * (1024 / sect)), &dat[acdisk]) != 0) {
+            QMessageBox::critical(this, "Creation error",
+                            "Program can't create new image!");
+            return;
+        }
 
         isch[acdisk] = true;
         isop[acdisk] = true;
