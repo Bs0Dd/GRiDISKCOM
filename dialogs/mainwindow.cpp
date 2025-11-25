@@ -74,24 +74,25 @@ int tildaCheck(string parse_str){
 }
 
 //*Check if space is enough to add files
-int checkFreeSp(ccfs_handle ctx, uint8_t* data, size_t data_size, vector<ccos_inode_t*> inodeList,
-                QList<QTableWidgetItem *> calledElems, size_t* needs){ //*For copy
+int checkFreeSp(int fromdisk, int todisk, ccfs_handle* ctx, uint8_t** data, size_t* data_size,
+                vector<ccos_inode_t*>* inodeList, QList<QTableWidgetItem *> calledElems,
+                size_t* needs){ //*For copy
 
     size_t frsp;
-    if (ccos_calc_free_space(ctx, data, data_size, &frsp) != 0){
+    if (ccos_calc_free_space(ctx[todisk], data[todisk], data_size[todisk], &frsp) != 0){
         return -2;
     }
     *needs = 0;
-    for (int i = 0; i < calledElems.size(); i+=6){
-        ccos_inode_t* file = inodeList[calledElems[i]->row()];
+    for (int i = 0; i < calledElems.size(); i+=7){
+        ccos_inode_t* file = inodeList[fromdisk][calledElems[i]->row()];
         if (file != 0){
             if (ccos_is_dir(file)){
                 uint16_t fils = 0;
                 ccos_inode_t** dirdata = NULL;
-                ccos_get_dir_contents(ctx, file, data, &fils, &dirdata);
+                ccos_get_dir_contents(ctx[fromdisk], file, data[fromdisk], &fils, &dirdata);
 
-                for(int i = 0; i < fils; i++){
-                    *needs += ccos_get_file_size(dirdata[i]);
+                for(int j = 0; j < fils; j++){
+                    *needs += ccos_get_file_size(dirdata[j]);
                 }
                 free(dirdata);
             }
@@ -106,7 +107,8 @@ int checkFreeSp(ccfs_handle ctx, uint8_t* data, size_t data_size, vector<ccos_in
         return 0;
 }
 
-int checkFreeSp(ccfs_handle ctx, uint8_t* data, size_t data_size, QStringList files, size_t* needs){ //*For add
+int checkFreeSp(ccfs_handle ctx, uint8_t* data, size_t data_size,
+                QStringList files, size_t* needs){ //*For add
     size_t frsp;
     if (ccos_calc_free_space(ctx, data, data_size, &frsp) != 0){
         return -2;
@@ -745,7 +747,7 @@ void MainWindow::Copy(){
         if (msgBox.exec() != QMessageBox::Yes)
             return;
         size_t needs = 0;
-        int retop = checkFreeSp(ccdesc[!acdisk], dat[!acdisk], siz[!acdisk], inodeon[acdisk], called, &needs);
+        int retop = checkFreeSp(acdisk, !acdisk, ccdesc, dat, siz, inodeon, called, &needs);
         if (retop == -2) {
             QMessageBox::critical(this, "Calculation error",
                             "Program can't calculate free space in the image!");
@@ -814,7 +816,7 @@ void MainWindow::CopyLoc(){
             return;
 
         size_t needs = 0;
-        int retop = checkFreeSp(ccdesc[acdisk], dat[acdisk], siz[acdisk], inodeon[acdisk], called, &needs);
+        int retop = checkFreeSp(acdisk, acdisk, ccdesc, dat, siz, inodeon, called, &needs);
         if (retop == -2) {
             QMessageBox::critical(this, "Calculation error",
                             "Program can't calculate free space in the image!");
