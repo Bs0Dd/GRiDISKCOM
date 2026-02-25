@@ -1,18 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(ccosclib)
-add_library(ccosclib STATIC
-        ccos_image/string_utils.h
-        ccos_image/string_utils.c
-        ccos_image/common.h
-        ccos_image/common.c
-        ccos_image/ccos_image.h
-        ccos_image/ccos_image.c
-        ccos_image/ccos_private.c
-        ccos_image/ccos_private.h
-        ccos_image/ccos_structure.h
-        ccos_image/ccos_structure.c
-        )
+add_subdirectory(ccos_image)
 
 project(GRiDISKCOM LANGUAGES CXX)
 
