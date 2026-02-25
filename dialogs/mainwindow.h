@@ -19,6 +19,11 @@
 #include <ccos_image/ccos_image.h>
 #include <ccos_image/ccos_private.h>
 
+#include <array>
+#include <memory>
+#include <optional>
+#include <vector>
+
 typedef struct {
   bool isgrid;
   bool active;
@@ -26,7 +31,22 @@ typedef struct {
   uint64_t size;
 } mbr_part_t;
 
-using namespace std;
+struct DiskPanel {
+    QString path;
+    ccos_disk_t disk = {};
+    ccos_inode_t* current_dir = nullptr;
+    std::vector<ccos_inode_t*> inodes;
+    bool modified = false;
+    bool in_subdir = false;
+
+    bool hdd_mode = false;
+    std::shared_ptr<std::vector<uint8_t>> hdd_data;
+
+    ~DiskPanel() {
+        if (!hdd_data && disk.data != nullptr)
+            free(disk.data);
+    }
+};
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -70,21 +90,11 @@ public slots:
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    bool isop[2] = {false}, nrot[2] = {false};
-    bool acdisk = false;
-    QString name[2];
-    bool hddmode[2] = {false};
-    uint8_t* hdddat[2] = {NULL};
-    size_t hddsiz[2] = {0};
-    bool oneimg = false;
-    ccos_disk_t ccdesc[2] = {};
+    std::array<std::optional<DiskPanel>, 2> panels;
+    int active_panel = 0;
 private:
-    Ui::MainWindow *ui;
-    AbDlg *abss;
-    ChsDlg *chsd;
-    CustDlg *cstdlg;
-    DateDlg *datd;
-    RenDlg *rnam;
-    VerDlg *vdlg;
+    std::unique_ptr<Ui::MainWindow> ui;
+
+    void fillTable(int panel_idx, ccos_inode_t* directory, bool noRoot);
 };
 #endif // MAINWINDOW_H
