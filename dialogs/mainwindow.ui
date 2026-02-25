@@ -515,6 +515,9 @@
     <addaction name="actionAbout"/>
    </widget>
    <widget class="QMenu" name="menuDebug">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="title">
      <string>Debug</string>
     </property>
@@ -702,6 +705,9 @@
   </action>
   <action name="actionDebtrace">
    <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="enabled">
     <bool>true</bool>
    </property>
    <property name="text">
