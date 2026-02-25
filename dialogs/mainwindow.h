@@ -6,7 +6,6 @@
 #include <QCloseEvent>
 #include <QInputDialog>
 #include <QMimeData>
-#include <vector>
 #include "ui_mainwindow.h"
 #include "abdlg.h"
 #include "custdlg.h"
@@ -15,11 +14,10 @@
 #include "rendlg.h"
 #include "verdlg.h"
 
-extern "C"{ //Load C "ccos_image" library headers
+#include <ccos_image/ccos_disk.h>
+#include <ccos_image/ccos_format.h>
 #include <ccos_image/ccos_image.h>
 #include <ccos_image/ccos_private.h>
-#include <ccos_image/common.h>
-}
 
 typedef struct {
   bool isgrid;
@@ -73,15 +71,13 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     bool isop[2] = {false}, nrot[2] = {false};
-    uint8_t* dat[2] = {NULL};
-    size_t siz[2] = {0};
     bool acdisk = false;
     QString name[2];
     bool hddmode[2] = {false};
     uint8_t* hdddat[2] = {NULL};
     size_t hddsiz[2] = {0};
     bool oneimg = false;
-    ccfs_handle ccdesc[2] = {NULL};
+    ccos_disk_t ccdesc[2] = {};
 private:
     Ui::MainWindow *ui;
     AbDlg *abss;
