@@ -3,9 +3,7 @@
 
 #include "ui_datedlg.h"
 
-extern "C"{ //Include for ccos_date_t type
 #include <ccos_image/ccos_image.h>
-}
 
 namespace Ui {
 class DateDlg;

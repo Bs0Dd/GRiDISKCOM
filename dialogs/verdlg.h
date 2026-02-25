@@ -3,9 +3,7 @@
 
 #include "ui_verdlg.h"
 
-extern "C"{ //Include for version_t type
 #include <ccos_image/ccos_image.h>
-}
 
 namespace Ui {
 class VerDlg;
