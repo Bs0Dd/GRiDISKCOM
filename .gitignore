@@ -1,6 +1,12 @@
+#Temp files
 *.cpp.autosave
 *.txt.user.*
 *.txt.user
 *.db
 
+#Build folder
 build/
+
+#CMake stuff
+CMakeCache.txt
+CMakeFiles
