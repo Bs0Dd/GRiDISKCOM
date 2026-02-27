@@ -1127,17 +1127,12 @@ void MainWindow::Label(){
     }
 }
 
-bool MainWindow::checkAlreadyOpen(const QString& path) {
-    int other = !active_panel;
-    return panels[other] && panels[other]->path == path && !panels[other]->hdd_mode;
+bool MainWindow::isFileAlreadyOpened(const QString& path) {
+    int other_panel = !active_panel;
+    return panels[other_panel] && panels[other_panel]->path == path;
 }
 
-bool MainWindow::askAnotherPartition(const QString& path) {
-    int other = !active_panel;
-    if (!panels[other] || !panels[other]->hdd_mode || panels[other]->path != path) {
-        return false;
-    }
-
+bool MainWindow::suggestSelectAnotherPartition() {
     QMessageBox msgBox(this);
     msgBox.setIcon(QMessageBox::Question);
     msgBox.setText("You are trying to open a hard disk image that is already\nopen in another panel.\n"
@@ -1258,15 +1253,12 @@ void MainWindow::tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size)
     dlg.setName("MBR: Select disk partition");
     dlg.setInfo("Hard disk with MBR detected.\nSelect the GRiD disk partition you want to work with:");
 
-    for (int i = 0; i < 4; i++) {
-        if (!parts[i].isgrid) {
-            continue;
+    for (int i = 0; i < 4; i++){
+        if (parts[i].isgrid && parts[i].active){
+            dlg.addItem(QString("Partition %1, active").arg(i+1));
         }
-
-        if (parts[i].active) {
-            dlg.addItem(QString("Partition %1, active").arg(i + 1));
-        } else {
-            dlg.addItem(QString("Partition %1").arg(i + 1));
+        else if (parts[i].isgrid){
+            dlg.addItem(QString("Partition %1").arg(i+1));
         }
     }
 
@@ -1279,7 +1271,7 @@ void MainWindow::tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size)
 
         std::optional<ccos_disk_t> disk = tryOpenMbrPartition(hdddata.data(), parts[selected]);
         if (disk) {
-            openValidMbrPartition(path, std::move(hdddata), *disk);
+            openValidMbrPartition(path, std::move(hdddata), selected, *disk);
             break;
         }
 
@@ -1288,7 +1280,7 @@ void MainWindow::tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size)
     }
 }
 
-void MainWindow::openValidMbrPartition(QString path, std::vector<uint8_t> hdddata, ccos_disk_t disk) {
+void MainWindow::openValidMbrPartition(QString path, std::vector<uint8_t> hdddata, int partition_index, ccos_disk_t disk) {
     ccos_inode_t* root = ccos_get_root_dir(&disk);
     Q_ASSERT(root != nullptr);
 
@@ -1300,6 +1292,7 @@ void MainWindow::openValidMbrPartition(QString path, std::vector<uint8_t> hdddat
     panel.current_dir = root;
     panel.hdd_mode = true;
     panel.hdd_data = std::make_shared<std::vector<uint8_t>>(std::move(hdddata));
+    panel.hdd_partition = partition_index;
 
     fillTable(active_panel, root, false);
     HDDMenu(true);
@@ -1314,15 +1307,18 @@ void MainWindow::LoadImg(QString path) {
         return;
     }
 
-    if (checkAlreadyOpen(path)) {
+    bool is_already_opened = isFileAlreadyOpened(path);
+    bool is_other_panel_has_hdd = is_already_opened && panels[!active_panel]->hdd_mode;
+
+    if (is_already_opened && !is_other_panel_has_hdd) {
         QMessageBox::critical(this, "Image already open",
                               "This image is already open in the other panel!");
         return;
     }
 
-    // FIXME
-    if (askAnotherPartition(path)) {
-        AnotherPart(false);
+    if (is_already_opened && is_other_panel_has_hdd) {
+        if (suggestSelectAnotherPartition())
+            AnotherPart(false);
         return;
     }
 

@@ -41,6 +41,7 @@ struct DiskPanel {
 
     bool hdd_mode = false;
     std::shared_ptr<std::vector<uint8_t>> hdd_data;
+    std::optional<int> hdd_partition;
 
     ~DiskPanel() {
         if (!hdd_data && disk.data != nullptr)
@@ -95,11 +96,11 @@ public:
 private:
     std::unique_ptr<Ui::MainWindow> ui;
 
-    bool checkAlreadyOpen(const QString& path);
-    bool askAnotherPartition(const QString& path);
+    bool isFileAlreadyOpened(const QString& path);
+    bool suggestSelectAnotherPartition();
     void openValidNonMbrDisk(QString path, ccos_disk_t disk);
     void tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size);
-    void openValidMbrPartition(QString path, std::vector<uint8_t> hdddata, ccos_disk_t disk);
+    void openValidMbrPartition(QString path, std::vector<uint8_t> hdddata, int partition_index, ccos_disk_t disk);
 
     void fillTable(int panel_idx, ccos_inode_t* directory, bool noRoot);
 };
