@@ -97,6 +97,7 @@ private:
     std::unique_ptr<Ui::MainWindow> ui;
 
     bool isFileAlreadyOpened(const QString& path);
+    void handleAlreadyOpenedImg(QString path);
     bool suggestSelectAnotherPartition();
     void openValidNonMbrDisk(QString path, ccos_disk_t disk);
     void tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size);

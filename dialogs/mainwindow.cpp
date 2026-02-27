@@ -1132,6 +1132,26 @@ bool MainWindow::isFileAlreadyOpened(const QString& path) {
     return panels[other_panel] && panels[other_panel]->path == path;
 }
 
+void MainWindow::handleAlreadyOpenedImg(QString path) {
+    Q_ASSERT(isFileAlreadyOpened(path));
+
+    if (!panels[!active_panel]->hdd_mode) {
+        QMessageBox::critical(this, "Image already open",
+                              "This image is already open in the other panel!");
+        return;
+    }
+
+    if (!suggestSelectAnotherPartition()) {
+        return;
+    }
+
+    if (!CloseImg()) {
+        return;
+    }
+
+    AnotherPart(false);
+}
+
 bool MainWindow::suggestSelectAnotherPartition() {
     QMessageBox msgBox(this);
     msgBox.setIcon(QMessageBox::Question);
@@ -1303,22 +1323,12 @@ void MainWindow::LoadImg(QString path) {
         return;
     }
 
-    if (panels[active_panel] && !CloseImg()) {
+    if (isFileAlreadyOpened(path)) {
+        handleAlreadyOpenedImg(path);
         return;
     }
 
-    bool is_already_opened = isFileAlreadyOpened(path);
-    bool is_other_panel_has_hdd = is_already_opened && panels[!active_panel]->hdd_mode;
-
-    if (is_already_opened && !is_other_panel_has_hdd) {
-        QMessageBox::critical(this, "Image already open",
-                              "This image is already open in the other panel!");
-        return;
-    }
-
-    if (is_already_opened && is_other_panel_has_hdd) {
-        if (suggestSelectAnotherPartition())
-            AnotherPart(false);
+    if (!CloseImg()) {
         return;
     }
 
