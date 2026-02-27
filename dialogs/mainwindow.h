@@ -102,6 +102,7 @@ private:
     void openValidNonMbrDisk(QString path, ccos_disk_t disk);
     void tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size);
     void openValidMbrPartition(QString path, std::vector<uint8_t> hdddata, int partition_index, ccos_disk_t disk);
+    void loadCustomImg(QString path, uint8_t* data, size_t size);
 
     void fillTable(int panel_idx, ccos_inode_t* directory, bool noRoot);
 };

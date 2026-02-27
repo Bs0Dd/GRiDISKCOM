@@ -1318,6 +1318,40 @@ void MainWindow::openValidMbrPartition(QString path, std::vector<uint8_t> hdddat
     HDDMenu(true);
 }
 
+void MainWindow::loadCustomImg(QString path, uint8_t* data, size_t size) {
+    QMessageBox msgBox(this);
+    msgBox.setIcon(QMessageBox::Question);
+    msgBox.setText("Failed to automatically detect image type!\n"
+                    "Image may be broken, have non-GRiD format or custom parameters.\n"
+                    "Do you want to set these parameters manually or cancel operation?");
+    msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    msgBox.setDefaultButton(QMessageBox::No);
+    if (msgBox.exec() != QMessageBox::Yes) {
+        free(data);
+        return;
+    }
+
+    CustDlg cdlg(this, true);
+    while (true) {
+        if (cdlg.exec() != 1) {
+            free(data);
+            break;
+        }
+
+        uint16_t sector_size, superblock;
+        cdlg.GetParams(&sector_size, &superblock, nullptr, nullptr);
+
+        // TODO: Allow to select bitmask.
+        std::optional<ccos_disk_t> disk = tryOpenAs(data, size, sector_size, superblock, superblock-1);
+        if (disk) {
+            openValidNonMbrDisk(path, *disk);
+        }
+
+        QMessageBox::critical(this, "Failed to open",
+                                              "Failed to open this file with specified parameters!");
+    }
+}
+
 void MainWindow::LoadImg(QString path) {
     if (path.isEmpty()) {
         return;
@@ -1338,15 +1372,15 @@ void MainWindow::LoadImg(QString path) {
         return;
     }
 
-    std::optional<ccos_disk_t> root = tryFromBootsector(data, size);
-    if (root) {
-        openValidNonMbrDisk(path, *root);
+    std::optional<ccos_disk_t> disk = tryFromBootsector(data, size);
+    if (disk) {
+        openValidNonMbrDisk(path, *disk);
         return;
     }
 
-    root = tryDetectBySize(data, size);
-    if (root) {
-        openValidNonMbrDisk(path, *root);
+    disk = tryDetectBySize(data, size);
+    if (disk) {
+        openValidNonMbrDisk(path, *disk);
         return;
     }
 
@@ -1355,9 +1389,7 @@ void MainWindow::LoadImg(QString path) {
         return;
     }
 
-    QMessageBox::critical(this, "Incorrect Image File",
-                                "Failed to detect image format!\n"
-                                "Image may be broken or have non-GRiD format.");
+    loadCustomImg(path, data, size);
 }
 
 void MainWindow::MakeDir(){
