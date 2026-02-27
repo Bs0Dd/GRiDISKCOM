@@ -95,6 +95,12 @@ public:
 private:
     std::unique_ptr<Ui::MainWindow> ui;
 
+    bool checkAlreadyOpen(const QString& path);
+    bool askAnotherPartition(const QString& path);
+    void openValidNonMbrDisk(QString path, ccos_disk_t disk);
+    void tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size);
+    void openValidMbrPartition(QString path, std::vector<uint8_t> hdddata, ccos_disk_t disk);
+
     void fillTable(int panel_idx, ccos_inode_t* directory, bool noRoot);
 };
 #endif // MAINWINDOW_H
