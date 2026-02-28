@@ -19,17 +19,19 @@
 #include <ccos_image/ccos_image.h>
 #include <ccos_image/ccos_private.h>
 
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <optional>
 #include <vector>
 
-typedef struct {
-  bool isgrid;
-  bool active;
-  uint64_t offset;
-  uint64_t size;
-} mbr_part_t;
+struct MbrPartition {
+    size_t   index;
+    bool     isGRiD;
+    bool     isActive;
+    uint64_t offset;
+    uint64_t size;
+};
 
 struct DiskPanel {
     QString path;
