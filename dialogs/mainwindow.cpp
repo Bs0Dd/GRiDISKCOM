@@ -381,25 +381,42 @@ void MainWindow::fillTable(int panel_idx, ccos_inode_t* directory, bool noRoot) 
 }
 
 //*Parse Hard Disk MBR
-int parseMbr(const uint8_t* hdddata, std::array<mbr_part_t, 4>& parts){
-    const uint8_t* mbrtab = hdddata + 0x1BE;
+std::vector<MbrPartition> parseMbr(const uint8_t* data, size_t size) {
+    std::vector<MbrPartition> partitions;
+    partitions.reserve(4);
 
-    int grids = 0;
-    for (int i = 0; i < 64; i+=16){
-        if (mbrtab[i+4] != 0x47) //47h - GRiD partition type (the only known)
-            continue; //If the type is different - not interested
+    if (size < 512) {
+        return partitions;
+    }
 
-        parts[i/16].isgrid = true;
-        grids++;
+    const uint8_t* table = data + 0x1BE;
+    for (size_t i = 0; i < 4; i++) {
+        const uint8_t* entry = table + i * 16;
 
-        if (mbrtab[i] == 0x80){
-            parts[i/16].active = true;
+        bool isGRiD = entry[4] == 0x47;
+        bool isActive = (entry[0] & 0x80) != 0;
+
+        if (!isGRiD) {
+            continue;
         }
 
-        parts[i/16].offset = (mbrtab[i+8] | mbrtab[i+9] << 8 | mbrtab[i+10] << 16 | mbrtab[i+11] << 24) * 512;
-        parts[i/16].size = (mbrtab[i+12] | mbrtab[i+13] << 8 | mbrtab[i+14] << 16 | mbrtab[i+15] << 24) * 512;
+        uint64_t part_offset = (entry[8] | entry[9] << 8 | entry[10] << 16 | entry[11] << 24) * 512;
+        uint64_t part_size = (entry[12] | entry[13] << 8 | entry[14] << 16 | entry[15] << 24) * 512;
+
+        if (part_offset == 0 && part_size == 0) {
+            break;
+        }
+
+        partitions.push_back(MbrPartition {
+            i,
+            isGRiD,
+            isActive,
+            part_offset,
+            part_size
+        });
     }
-    return grids;
+
+    return partitions;
 }
 
 //*Ask if user wants to save a file
@@ -634,8 +651,7 @@ void MainWindow::AnotherPart(bool fromMenu){
 
     auto& src = *panels[usedisk];
 
-    std::array<mbr_part_t, 4> parts;
-    parseMbr(src.hdd_data->data(), parts);
+    std::vector<MbrPartition> parts = parseMbr(src.hdd_data->data(), src.hdd_data->size());
 
     ChsDlg dlg(this);
     dlg.setName("Select disk partition");
@@ -644,51 +660,52 @@ void MainWindow::AnotherPart(bool fromMenu){
     if (fromMenu)
         dlg.enCheckBox();
 
-    for (int i = 0; i < 4; i++){
-        if (parts[i].isgrid && parts[i].active){
-            dlg.addItem(QString("Partition %1, active").arg(i+1));
-        }
-        else if (parts[i].isgrid){
-            dlg.addItem(QString("Partition %1").arg(i+1));
+    for (const auto& part : parts) {
+        if (part.isActive){
+            dlg.addItem(QString("Partition %1, active").arg(part.index + 1));
+        } else {
+            dlg.addItem(QString("Partition %1").arg(part.index + 1));
         }
     }
 
-    if (dlg.exec() == 1){
-        int selctd = dlg.getIndex();
-
-        int topan = (fromMenu && dlg.isChecked()) ? !active_panel : active_panel;
-
-        if (usedisk != topan && panels[topan])
-            CloseImg();
-
-        if (!panels[topan])
-            panels[topan].emplace();
-
-        auto& dst = *panels[topan];
-        dst.disk = src.disk;
-        dst.disk.size = parts[selctd].size;
-        dst.disk.data = src.hdd_data->data() + parts[selctd].offset;
-
-        ccos_inode_t* root = ccos_get_root_dir(&dst.disk);
-        if (root == nullptr){
-            QMessageBox::critical(this, "Incorrect Image File",
-                                  "Image broken or have non-GRiD format!");
-            if (usedisk == topan){
-                src.hdd_data.reset();
-                src.hdd_mode = false;
-            }
-            panels[topan].reset();
-            return;
-        }
-        dst.hdd_mode = true;
-        dst.current_dir = root;
-        if (!fromMenu || dlg.isChecked()){
-            dst.path = src.path;
-            dst.hdd_data = src.hdd_data;
-        }
-
-        fillTable(topan, root, false);
+    if (dlg.exec() != 1) {
+        return;
     }
+
+    int selctd = dlg.getIndex();
+
+    int topan = (fromMenu && dlg.isChecked()) ? !active_panel : active_panel;
+
+    if (usedisk != topan && panels[topan])
+        CloseImg();
+
+    if (!panels[topan])
+        panels[topan].emplace();
+
+    auto& dst = *panels[topan];
+    dst.disk = src.disk;
+    dst.disk.size = parts[selctd].size;
+    dst.disk.data = src.hdd_data->data() + parts[selctd].offset;
+
+    ccos_inode_t* root = ccos_get_root_dir(&dst.disk);
+    if (root == nullptr){
+        QMessageBox::critical(this, "Incorrect Image File",
+                                "Image broken or have non-GRiD format!");
+        if (usedisk == topan){
+            src.hdd_data.reset();
+            src.hdd_mode = false;
+        }
+        panels[topan].reset();
+        return;
+    }
+    dst.hdd_mode = true;
+    dst.current_dir = root;
+    if (!fromMenu || dlg.isChecked()){
+        dst.path = src.path;
+        dst.hdd_data = src.hdd_data;
+    }
+
+    fillTable(topan, root, false);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event){
@@ -1244,7 +1261,7 @@ static bool isMbrDisk(const uint8_t* data, size_t size) {
     return size > 0x200 && data[0x1FE] == 0x55 && data[0x1FF] == 0xAA;
 }
 
-static std::optional<ccos_disk_t> tryOpenMbrPartition(uint8_t* data, mbr_part_t& partition) {
+static std::optional<ccos_disk_t> tryOpenMbrPartition(uint8_t* data, MbrPartition& partition) {
     std::optional<ccos_disk_t> disk = tryFromBootsector(data + partition.offset, partition.size);
     if (disk) {
         return disk;
@@ -1257,15 +1274,21 @@ static std::optional<ccos_disk_t> tryOpenMbrPartition(uint8_t* data, mbr_part_t&
 void MainWindow::tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size) {
     Q_ASSERT(isMbrDisk(data, size));
 
-    std::vector<uint8_t> hdddata(data, data+size);
+    std::vector<uint8_t> hdd_data(data, data+size);
     free(data);
 
-    std::array<mbr_part_t, 4> parts;
+    std::vector<MbrPartition> parts = parseMbr(hdd_data.data(), hdd_data.size());
 
-    int grids = parseMbr(hdddata.data(), parts);
-    if (grids == 0) {
+    int countOfGRIDParts = 0;
+    for (const auto& part : parts) {
+        if (part.isGRiD) {
+            countOfGRIDParts += 1;
+        }
+    }
+
+    if (countOfGRIDParts == 0) {
         QMessageBox::critical(this, "MBR: No GRiD partitions",
-                                        "No GRiD partitions found on the disk!");
+                                    "No GRiD partitions found on the disk!");
         return;
     }
 
@@ -1273,12 +1296,11 @@ void MainWindow::tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size)
     dlg.setName("MBR: Select disk partition");
     dlg.setInfo("Hard disk with MBR detected.\nSelect the GRiD disk partition you want to work with:");
 
-    for (int i = 0; i < 4; i++){
-        if (parts[i].isgrid && parts[i].active){
-            dlg.addItem(QString("Partition %1, active").arg(i+1));
-        }
-        else if (parts[i].isgrid){
-            dlg.addItem(QString("Partition %1").arg(i+1));
+    for (const auto& part : parts) {
+        if (part.isActive){
+            dlg.addItem(QString("Partition %1, active").arg(part.index + 1));
+        } else {
+            dlg.addItem(QString("Partition %1").arg(part.index + 1));
         }
     }
 
@@ -1289,9 +1311,9 @@ void MainWindow::tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size)
 
         int selected = dlg.getIndex();
 
-        std::optional<ccos_disk_t> disk = tryOpenMbrPartition(hdddata.data(), parts[selected]);
+        std::optional<ccos_disk_t> disk = tryOpenMbrPartition(hdd_data.data(), parts[selected]);
         if (disk) {
-            openValidMbrPartition(path, std::move(hdddata), selected, *disk);
+            openValidMbrPartition(path, std::move(hdd_data), selected, *disk);
             break;
         }
 
@@ -1300,7 +1322,7 @@ void MainWindow::tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size)
     }
 }
 
-void MainWindow::openValidMbrPartition(QString path, std::vector<uint8_t> hdddata, int partition_index, ccos_disk_t disk) {
+void MainWindow::openValidMbrPartition(QString path, std::vector<uint8_t> hdd_data, int partition_index, ccos_disk_t disk) {
     ccos_inode_t* root = ccos_get_root_dir(&disk);
     Q_ASSERT(root != nullptr);
 
@@ -1311,7 +1333,7 @@ void MainWindow::openValidMbrPartition(QString path, std::vector<uint8_t> hdddat
     panel.disk = disk;
     panel.current_dir = root;
     panel.hdd_mode = true;
-    panel.hdd_data = std::make_shared<std::vector<uint8_t>>(std::move(hdddata));
+    panel.hdd_data = std::make_shared<std::vector<uint8_t>>(std::move(hdd_data));
     panel.hdd_partition = partition_index;
 
     fillTable(active_panel, root, false);
@@ -1664,18 +1686,11 @@ void MainWindow::SavePart(){
     }
 }
 
-void MainWindow::SetActivePart(){
+void MainWindow::SetActivePart() {
     auto& panel = *panels[active_panel];
     uint8_t* mbrtab = panel.hdd_data->data() + 0x1BE;
 
-    std::array<mbr_part_t, 4> parts;
-    int grids = parseMbr(panel.hdd_data->data(), parts);
-
-    if (grids == 0){
-        QMessageBox::critical(this, "No GRiD partitions",
-                              "No GRiD partitions found on the disk!");
-        return;
-    }
+    std::vector<MbrPartition> parts = parseMbr(panel.hdd_data->data(), panel.hdd_data->size());
 
     ChsDlg dlg(this);
     dlg.setName("Select disk partition");
@@ -1683,9 +1698,8 @@ void MainWindow::SetActivePart(){
 
     dlg.addItem("No active partition");
 
-    for (int i = 0; i < 4; i++){
-        if (parts[i].isgrid)
-            dlg.addItem(QString("Partition %1").arg(i+1));
+    for (const auto& part : parts) {
+        dlg.addItem(QString("Partition %1").arg(part.index + 1));
     }
 
     if (dlg.exec() == 1){
