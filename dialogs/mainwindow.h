@@ -19,11 +19,11 @@
 #include <ccos_image/ccos_image.h>
 #include <ccos_image/ccos_private.h>
 
-#include <algorithm>
 #include <array>
 #include <memory>
 #include <optional>
 #include <vector>
+#include <ctime>
 
 struct MbrPartition {
     size_t   index;
