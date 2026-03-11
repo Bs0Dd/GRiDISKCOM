@@ -19,6 +19,25 @@
 #define GRID_HDD_SUPERBLOCK_FID     0x2420
 #define GRID_HDD_BITMAP_FID         0x2400
 
+ccos_date_t ccos_get_datetime(void) {
+  struct timespec tp;
+  clock_gettime(CLOCK_REALTIME, &tp);
+  struct tm* time_struct;
+  time_struct = localtime(&tp.tv_sec);
+
+  return (ccos_date_t){
+    .year = (uint16_t)(time_struct->tm_year + 1900),
+    .month = (uint8_t)(time_struct->tm_mon + 1),
+    .day = (uint8_t)(time_struct->tm_mday),
+    .hour = (uint8_t)(time_struct->tm_hour),
+    .minute = (uint8_t)(time_struct->tm_min),
+    .second = (uint8_t)(time_struct->tm_sec),
+    .tenthOfSec = (uint8_t)(tp.tv_nsec / 100000000),
+    .dayOfWeek = (uint8_t)(time_struct->tm_wday + 1),
+    .dayOfYear = (uint16_t)(time_struct->tm_yday + 1),
+  };
+}
+
 //[Service functions]
 
 void replace_char_in_place(char* src, char from, char to) {
@@ -31,7 +50,7 @@ void replace_char_in_place(char* src, char from, char to) {
 
 //*Get file version and convert to QString ("A.B.C")
 QString ccosGetFileVersionQstr(ccos_inode_t* file){
-    version_t ver = ccos_get_file_version(file);
+    ccos_version_t ver = ccos_get_file_version(file);
     return QString("%1.%2.%3").arg(QString::number(ver.major), QString::number(ver.minor),
                                    QString::number(ver.patch));
 }
@@ -101,10 +120,13 @@ int checkFreeSp(DiskPanel& from, DiskPanel& to,
                 QList<QTableWidgetItem *> calledElems,
                 size_t* needs){ //*For copy
 
-    size_t frsp = ccos_calc_free_space(&to.disk);
-    if (frsp == -1){
+    size_t frsp;
+
+    ccos_error_t err = ccos_calc_free_space(&to.disk, &frsp);
+    if (err != CCOS_OK){
         return -2;
     }
+
     *needs = 0;
     for (int i = 0; i < calledElems.size(); i+=7){
         ccos_inode_t* file = from.inodes[calledElems[i]->row()];
@@ -115,12 +137,12 @@ int checkFreeSp(DiskPanel& from, DiskPanel& to,
                 ccos_get_dir_contents(&from.disk, file, &fils, &dirdata);
 
                 for(int j = 0; j < fils; j++){
-                    *needs += ccos_get_file_size(dirdata[j]);
+                    *needs += dirdata[j]->desc.file_size;
                 }
                 free(dirdata);
             }
 
-            *needs += ccos_get_file_size(file);
+            *needs += file->desc.file_size;
         }
     }
 
@@ -131,8 +153,9 @@ int checkFreeSp(DiskPanel& from, DiskPanel& to,
 }
 
 int checkFreeSp(ccos_disk_t* disk, QStringList files, size_t* needs){ //*For add
-    size_t frsp = ccos_calc_free_space(disk);
-    if (frsp == -1){
+    size_t frsp;
+    ccos_error_t err = ccos_calc_free_space(disk, &frsp);
+    if (err != CCOS_OK){
         return -2;
     }
     *needs = 0;
@@ -221,7 +244,7 @@ int dumpFileQt(ccos_disk_t* disk, ccos_inode_t* file, QString path, QWidget* par
     size_t file_size = 0;
     uint8_t* file_data = nullptr;
 
-    if (ccos_read_file(disk, file, &file_data, &file_size) == -1){
+    if (ccos_read_file(disk, file, &file_data, &file_size) != CCOS_OK){
         QMessageBox::critical(parent, "Failed to read file from image",
                       QString("Unable to read file \"%1\": Unable to get file contents!").arg(fnam));
         free(fnam);
@@ -242,7 +265,6 @@ int dumpFileQt(ccos_disk_t* disk, ccos_inode_t* file, QString path, QWidget* par
 //*Dump dir from image to path
 int dumpDirQt(ccos_disk_t* disk, ccos_inode_t* dir, QString path, QWidget* parent){
     char name[CCOS_MAX_FILE_NAME];
-    memset(name, 0, CCOS_MAX_FILE_NAME);
     ccos_parse_file_name(dir, name, nullptr, nullptr, nullptr);
     replace_char_in_place(name, '/', '_');
 
@@ -337,10 +359,9 @@ void MainWindow::fillTable(int panel_idx, ccos_inode_t* directory, bool noRoot) 
     }
     for (int row = tableWidget->rowCount(); 0<=row; row--)
         tableWidget->removeRow(row);
-    char* labd = ccos_get_image_label(&panel.disk);
+    const short_string_t* labd = ccos_get_disk_label(&panel.disk);
     msg = "Disk %1 - %2%3";
-    box->setTitle(msg.arg(disk_name, (strlen(labd) != 0) ? labd : "No label", panel.modified ? "*" : ""));
-    free(labd);
+    box->setTitle(msg.arg(disk_name, labd->length > 0 ? QString::fromLatin1(labd->data, labd->length) : "No label", panel.modified ? "*" : ""));
     char basename[CCOS_MAX_FILE_NAME];
     char type[CCOS_MAX_FILE_NAME];
     if (noRoot){
@@ -354,17 +375,18 @@ void MainWindow::fillTable(int panel_idx, ccos_inode_t* directory, bool noRoot) 
         QString qtype = type;
         if (!noRoot) //All files in the root are directories
             qtype = qtype + " <DIR>";
-        QString text[] = {basename, qtype, QString::number(ccos_get_file_size(dirdata[c])),
+        QString text[] = {basename, qtype, QString::number(dirdata[c]->desc.file_size),
                          ccosGetFileVersionQstr(dirdata[c]),
-                         ccosDateToQstr(ccos_get_creation_date(dirdata[c])),
-                         ccosDateToQstr(ccos_get_mod_date(dirdata[c])),
-                         ccosDateToQstr(ccos_get_exp_date(dirdata[c]))};
+                         ccosDateToQstr(dirdata[c]->desc.creation_date),
+                         ccosDateToQstr(dirdata[c]->desc.mod_date),
+                         ccosDateToQstr(dirdata[c]->desc.expiration_date)};
         panel.inodes.push_back(dirdata[c]);
         addFile(tableWidget, text);
     }
 
-    size_t free_space = ccos_calc_free_space(&panel.disk);
-    if (free_space == -1){
+    size_t free_space;
+    ccos_error_t err = ccos_calc_free_space(&panel.disk, &free_space);
+    if (err != CCOS_OK){
         label->setText("Free space: FAILED TO CALCULATE!");
         free(dirdata);
         return;
@@ -546,8 +568,9 @@ void MainWindow::AddDirs(QStringList dirs){
     auto& panel = *panels[active_panel];
     ccos_inode_t* root = ccos_get_root_dir(&panel.disk);
     for (const auto& dir : dirs) {
-        size_t frees = ccos_calc_free_space(&panel.disk);
-        if (frees == -1){
+        size_t frees;
+        ccos_error_t err = ccos_calc_free_space(&panel.disk, &frees);
+        if (err != CCOS_OK){
             QMessageBox::critical(this, "Calculation error",
                             "Program can't calculate free space in the image!");
             break;
@@ -590,7 +613,8 @@ int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
         return -1;
     }
     else if (retop == -1) {
-        size_t free = ccos_calc_free_space(&panel.disk);
+        size_t free;
+        ccos_calc_free_space(&panel.disk, &free);
         QMessageBox::critical(this, "Not enough space",
                         QString("Requires %1 bytes of additional disk space to add!").arg(needs-free));
         return -1;
@@ -784,7 +808,8 @@ void MainWindow::Copy(){
             return;
         }
         else if (retop == -1) {
-            size_t frsp = ccos_calc_free_space(&dst.disk);
+            size_t frsp;
+            ccos_calc_free_space(&dst.disk, &frsp);
             QMessageBox::critical(this, "Not enough space",
                             QString("Requires %1 bytes of additional disk space to copy").arg(needs-frsp));
             return;
@@ -793,7 +818,7 @@ void MainWindow::Copy(){
             if (src.inodes[called[t]->row()]==nullptr)
                 continue;
             if (ccos_is_dir(src.inodes[called[t]->row()])) {
-                if (ccos_file_id(dst.current_dir) != ccos_file_id(ccos_get_root_dir(&dst.disk))) {
+                if (dst.current_dir->header.file_id != ccos_get_root_dir(&dst.disk)->header.file_id) {
                     QMessageBox::critical(this, "Copying to non-root",
                                     "Folders can be copied only to root folder!");
                     return;
@@ -814,7 +839,7 @@ void MainWindow::Copy(){
                 }
             }
             else {
-                if (ccos_file_id(dst.current_dir) == ccos_file_id(ccos_get_root_dir(&dst.disk))) {
+                if (dst.current_dir->header.file_id == ccos_get_root_dir(&dst.disk)->header.file_id) {
                     QMessageBox::critical(this, "Copying to root",
                                     "Files can be copied only to non-root folder!");
                     return;
@@ -859,7 +884,8 @@ void MainWindow::CopyLoc() {
         return;
     }
     else if (retop == -1) {
-        size_t frsp = ccos_calc_free_space(&panel.disk);
+        size_t frsp;
+        ccos_calc_free_space(&panel.disk, &frsp);
         QMessageBox::critical(this, "Not enough space",
                         QString("Requires %1 bytes of additional disk space to copy").arg(needs-frsp));
         return;
@@ -960,9 +986,9 @@ void MainWindow::Date(){
         return;
     }
 
-    ccos_date_t cre = ccos_get_creation_date(file);
-    ccos_date_t mod = ccos_get_mod_date(file);
-    ccos_date_t exp = ccos_get_exp_date(file);
+    ccos_date_t cre = file->desc.creation_date;
+    ccos_date_t mod = file->desc.mod_date;
+    ccos_date_t exp = file->desc.expiration_date;
     DateDlg dlg(this);
     dlg.init(file->desc.name, cre, mod, exp);
     if (dlg.exec()){
@@ -1131,14 +1157,14 @@ void MainWindow::Label(){
             dsk= "I";
         else
             dsk= "II";
-        char* fname = ccos_get_image_label(&panel.disk);
+        const short_string_t* fname = ccos_get_disk_label(&panel.disk);
         QString nameQ = QInputDialog::getText(this, tr("New label"),
-                                              QString("Set new label for the disk %1:").arg(dsk), QLineEdit::Normal, fname);
+                                              QString("Set new label for the disk %1:").arg(dsk), QLineEdit::Normal, QString::fromLatin1(fname->data, fname->length));
 
         if (validString(nameQ, false, this) == -1)
             return;
 
-        ccos_set_image_label(&panel.disk, nameQ.toStdString().c_str());
+        ccos_set_disk_label(&panel.disk, nameQ.toStdString().c_str());
         panel.modified = true;
         fillTable(active_panel, panel.current_dir, panel.in_subdir);
     }
@@ -1184,24 +1210,8 @@ static std::optional<ccos_disk_t> tryOpenAs(
 ) {
     ccos_disk_t disk = { sector_size, superblock_fid, bitmap_fid, size, data };
 
-    // HACK:
-    // For some reason, ccos_get_root_dir reads the root directory
-    // not from our addresses in the disk structure, but from the image's own data.
-    // To prevent this, we temporarily zero out some fields of the zero sector
-    // while reading the root directory.
-    uint16_t zero_sector_superblock = *(uint16_t*)&data[CCOS_SUPERBLOCK_ADDR_OFFSET];
-    *(uint16_t*)&data[CCOS_SUPERBLOCK_ADDR_OFFSET] = 0;
-
-    uint16_t zero_sector_bitmap = *(uint16_t*)&data[CCOS_BITMASK_ADDR_OFFSET];
-    *(uint16_t*)&data[CCOS_BITMASK_ADDR_OFFSET] = 0;
-
     // Open the root directory using values from the disk structure.
     ccos_inode_t* root = ccos_get_root_dir(&disk);
-    
-    // Restore the values.
-    *(uint16_t*)&data[CCOS_SUPERBLOCK_ADDR_OFFSET] = zero_sector_superblock;
-    *(uint16_t*)&data[CCOS_BITMASK_ADDR_OFFSET] = zero_sector_bitmap;
-    
     if (root == nullptr) {
         return std::nullopt;
     } else {
@@ -1214,8 +1224,10 @@ static std::optional<ccos_disk_t> tryFromBootsector(uint8_t* data, size_t size) 
         return std::nullopt;
     }
 
-    uint16_t superblock = *(uint16_t*)&data[CCOS_SUPERBLOCK_ADDR_OFFSET];
-    uint16_t bitmap = *(uint16_t*)&data[CCOS_BITMASK_ADDR_OFFSET];
+    const ccos_boot_sector_t* boot_sector = (const ccos_boot_sector_t*)data;
+
+    uint16_t superblock = boot_sector->superblock_fid;
+    uint16_t bitmap = boot_sector->bitmap_fid;
 
     if (superblock == 0 || bitmap == 0) {
         return std::nullopt;
@@ -1429,8 +1441,9 @@ void MainWindow::MakeDir(){
             if (name == "")
                 break;
             else if (validString(name, true, this) != -1){
-                size_t frsp = ccos_calc_free_space(&panel.disk);
-                if (frsp == -1) {
+                size_t frsp;
+                ccos_error_t err = ccos_calc_free_space(&panel.disk, &frsp);
+                if (err != CCOS_OK) {
                     QMessageBox::critical(this, "Calculation error",
                                     "Program can't calculate free space in the image!");
                     break;
@@ -1483,7 +1496,7 @@ void MainWindow::NewImage(){
             }
 
             if (labl != "") {
-                ccos_set_image_label(&panel.disk, labl.toStdString().c_str());
+                ccos_set_disk_label(&panel.disk, labl.toStdString().c_str());
             }
 
             panel.modified = true;
@@ -1727,7 +1740,7 @@ void MainWindow::Version(){
             tw = ui->tableWidget_2;
         ccos_inode_t* file = panel.inodes[tw->currentItem()->row()];
         if (file != nullptr){
-            version_t ver = ccos_get_file_version(file);
+            ccos_version_t ver = ccos_get_file_version(file);
             VerDlg dlg(this);
             dlg.init(file->desc.name, ver);
             if (dlg.exec() == 1){

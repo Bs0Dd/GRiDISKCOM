@@ -15,8 +15,8 @@ class VerDlg : public QDialog
 
 public:
     explicit VerDlg(QWidget *parent = nullptr);
-    void init(QString fname, version_t version);
-    version_t retVer();
+    void init(QString fname, ccos_version_t version);
+    ccos_version_t retVer();
     ~VerDlg();
 
 private:
