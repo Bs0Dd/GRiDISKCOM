@@ -1,4 +1,12 @@
 #include "mainwindow.h"
+#include "preview/previewdlg.h"
+#include "imd2raw.h"
+
+#include <QDir>
+#include <QTemporaryFile>
+
+#include <cstdio>
+#include <ctime>
 
 // GRiD disk/firmware "magic" constants for geometry/superblock/bitmap
 
@@ -19,26 +27,27 @@
 #define GRID_HDD_SUPERBLOCK_FID     0x2420
 #define GRID_HDD_BITMAP_FID         0x2400
 
+//[Service functions]
+
+static ccos_disk_t* tryOpenMbrPartition(uint8_t* data, MbrPartition& partition);
+
 ccos_date_t ccos_get_datetime(void) {
-  struct timespec tp;
+  timespec tp;
   clock_gettime(CLOCK_REALTIME, &tp);
-  struct tm* time_struct;
-  time_struct = localtime(&tp.tv_sec);
+  tm* time_struct = localtime(&tp.tv_sec);
 
   return (ccos_date_t){
-    .year = (uint16_t)(time_struct->tm_year + 1900),
-    .month = (uint8_t)(time_struct->tm_mon + 1),
-    .day = (uint8_t)(time_struct->tm_mday),
-    .hour = (uint8_t)(time_struct->tm_hour),
-    .minute = (uint8_t)(time_struct->tm_min),
-    .second = (uint8_t)(time_struct->tm_sec),
-    .tenthOfSec = (uint8_t)(tp.tv_nsec / 100000000),
-    .dayOfWeek = (uint8_t)(time_struct->tm_wday + 1),
-    .dayOfYear = (uint16_t)(time_struct->tm_yday + 1),
+    .year = static_cast<uint16_t>(time_struct->tm_year + 1900),
+    .month = static_cast<uint8_t>(time_struct->tm_mon + 1),
+    .day = static_cast<uint8_t>(time_struct->tm_mday),
+    .hour = static_cast<uint8_t>(time_struct->tm_hour),
+    .minute = static_cast<uint8_t>(time_struct->tm_min),
+    .second = static_cast<uint8_t>(time_struct->tm_sec),
+    .tenthOfSec = static_cast<uint8_t>(tp.tv_nsec / 100000000),
+    .dayOfWeek = static_cast<uint8_t>(time_struct->tm_wday + 1),
+    .dayOfYear = static_cast<uint16_t>(time_struct->tm_yday + 1),
   };
 }
-
-//[Service functions]
 
 void replace_char_in_place(char* src, char from, char to) {
   for (int i = 0; i < strlen(src); ++i) {
@@ -46,6 +55,13 @@ void replace_char_in_place(char* src, char from, char to) {
       src[i] = to;
     }
   }
+}
+
+QString short_string_to_qstring(const short_string_t* short_string) {
+  if (short_string == nullptr) {
+    return {};
+  }
+  return QString::fromLatin1(short_string->data, short_string->length);
 }
 
 //*Get file version and convert to QString ("A.B.C")
@@ -120,13 +136,10 @@ int checkFreeSp(DiskPanel& from, DiskPanel& to,
                 QList<QTableWidgetItem *> calledElems,
                 size_t* needs){ //*For copy
 
-    size_t frsp;
-
-    ccos_error_t err = ccos_calc_free_space(&to.disk, &frsp);
-    if (err != CCOS_OK){
+    size_t frsp = 0;
+    if (ccos_calc_free_space(to.disk, &frsp) != CCOS_OK){
         return -2;
     }
-
     *needs = 0;
     for (int i = 0; i < calledElems.size(); i+=7){
         ccos_inode_t* file = from.inodes[calledElems[i]->row()];
@@ -134,7 +147,7 @@ int checkFreeSp(DiskPanel& from, DiskPanel& to,
             if (ccos_is_dir(file)){
                 uint16_t fils = 0;
                 ccos_inode_t** dirdata = nullptr;
-                ccos_get_dir_contents(&from.disk, file, &fils, &dirdata);
+                ccos_get_dir_contents(from.disk, file, &fils, &dirdata);
 
                 for(int j = 0; j < fils; j++){
                     *needs += dirdata[j]->desc.file_size;
@@ -153,9 +166,8 @@ int checkFreeSp(DiskPanel& from, DiskPanel& to,
 }
 
 int checkFreeSp(ccos_disk_t* disk, QStringList files, size_t* needs){ //*For add
-    size_t frsp;
-    ccos_error_t err = ccos_calc_free_space(disk, &frsp);
-    if (err != CCOS_OK){
+    size_t frsp = 0;
+    if (ccos_calc_free_space(disk, &frsp) != CCOS_OK){
         return -2;
     }
     *needs = 0;
@@ -234,10 +246,38 @@ int saveFileQt(QString path, uint8_t* file_data, size_t file_size, QWidget* pare
     return 0;
 }
 
+//*Convert an .IMD file into a temporary raw .img and return its path.
+// Returns an empty string on failure (an error dialog is shown to the user).
+QString convertImdToTempImg(const QString& imdPath, QWidget* parent){
+    QTemporaryFile tempFile(QDir::tempPath() + "/gridiskcom_XXXXXX.img");
+    tempFile.setAutoRemove(false);
+    if (!tempFile.open()){
+        QMessageBox::critical(parent, "Unable to create temporary file",
+                        QString("Unable to create a temporary file for IMD conversion in \"%1\".")
+                            .arg(QDir::tempPath()));
+        return "";
+    }
+    QString tempPath = tempFile.fileName();
+    tempFile.close(); // release so imd2raw can open it for writing
+
+    QByteArray inBytes = imdPath.toLocal8Bit();
+    QByteArray outBytes = tempPath.toLocal8Bit();
+    int res = imd2raw_convert(inBytes.constData(), outBytes.constData());
+    if (res != 0){
+        QFile::remove(tempPath);
+        QMessageBox::critical(parent, "IMD conversion failed",
+                        QString("Failed to convert IMD file \"%1\" to a raw image (code %2).\n"
+                                "The file may be corrupted or not a valid ImageDisk image.")
+                            .arg(imdPath).arg(res));
+        return "";
+    }
+    return tempPath;
+}
+
 //*Dump file from image to path
 int dumpFileQt(ccos_disk_t* disk, ccos_inode_t* file, QString path, QWidget* parent){
-    char* fnam = short_string_to_string(ccos_get_file_name(file));
-    replace_char_in_place(fnam, '/', '_');
+    QString fnam = short_string_to_qstring(ccos_get_file_name(file));
+    fnam.replace('/', '_');
 
     QString fpath = QDir(path).filePath(fnam);
 
@@ -247,11 +287,8 @@ int dumpFileQt(ccos_disk_t* disk, ccos_inode_t* file, QString path, QWidget* par
     if (ccos_read_file(disk, file, &file_data, &file_size) != CCOS_OK){
         QMessageBox::critical(parent, "Failed to read file from image",
                       QString("Unable to read file \"%1\": Unable to get file contents!").arg(fnam));
-        free(fnam);
         return -1;
     }
-
-    free(fnam);
 
     if (saveFileQt(fpath, file_data, file_size, parent) == -1){
         free(file_data);
@@ -265,6 +302,7 @@ int dumpFileQt(ccos_disk_t* disk, ccos_inode_t* file, QString path, QWidget* par
 //*Dump dir from image to path
 int dumpDirQt(ccos_disk_t* disk, ccos_inode_t* dir, QString path, QWidget* parent){
     char name[CCOS_MAX_FILE_NAME];
+    memset(name, 0, CCOS_MAX_FILE_NAME);
     ccos_parse_file_name(dir, name, nullptr, nullptr, nullptr);
     replace_char_in_place(name, '/', '_');
 
@@ -300,17 +338,16 @@ int dumpImgQt(ccos_disk_t* disk, QString path, QString altname, QWidget* parent)
         return -1;
     }
 
-    char* name = short_string_to_string(ccos_get_file_name(root_dir));
+    QString name = short_string_to_qstring(ccos_get_file_name(root_dir));
     QString dnam;
 
-    if (strcmp(name, "") == 0){
+    if (name.isEmpty()){
         dnam = altname;
     }
     else{
-        replace_char_in_place(name, '/', '_');
         dnam = name;
+        dnam.replace('/', '_');
     }
-    free(name);
 
     QString dpath = QDir(path).filePath(dnam);
 
@@ -344,7 +381,7 @@ void MainWindow::fillTable(int panel_idx, ccos_inode_t* directory, bool noRoot) 
     panel.inodes.clear();
     uint16_t fils = 0;
     ccos_inode_t** dirdata = nullptr;
-    ccos_get_dir_contents(&panel.disk, directory, &fils, &dirdata);
+    ccos_get_dir_contents(panel.disk, directory, &fils, &dirdata);
     if (panel_idx == 0){
         tableWidget = ui->tableWidget;
         label = ui->label;
@@ -359,9 +396,9 @@ void MainWindow::fillTable(int panel_idx, ccos_inode_t* directory, bool noRoot) 
     }
     for (int row = tableWidget->rowCount(); 0<=row; row--)
         tableWidget->removeRow(row);
-    const short_string_t* labd = ccos_get_disk_label(&panel.disk);
+    QString labd = short_string_to_qstring(ccos_get_disk_label(panel.disk));
     msg = "Disk %1 - %2%3";
-    box->setTitle(msg.arg(disk_name, labd->length > 0 ? QString::fromLatin1(labd->data, labd->length) : "No label", panel.modified ? "*" : ""));
+    box->setTitle(msg.arg(disk_name, !labd.isEmpty() ? labd : "No label", panel.modified ? "*" : ""));
     char basename[CCOS_MAX_FILE_NAME];
     char type[CCOS_MAX_FILE_NAME];
     if (noRoot){
@@ -384,9 +421,8 @@ void MainWindow::fillTable(int panel_idx, ccos_inode_t* directory, bool noRoot) 
         addFile(tableWidget, text);
     }
 
-    size_t free_space;
-    ccos_error_t err = ccos_calc_free_space(&panel.disk, &free_space);
-    if (err != CCOS_OK){
+    size_t free_space = 0;
+    if (ccos_calc_free_space(panel.disk, &free_space) != CCOS_OK){
         label->setText("Free space: FAILED TO CALCULATE!");
         free(dirdata);
         return;
@@ -400,6 +436,18 @@ void MainWindow::fillTable(int panel_idx, ccos_inode_t* directory, bool noRoot) 
     }
 
     free(dirdata);
+}
+
+void MainWindow::updatePanelTitle(int panel_idx) {
+    if (!panels[panel_idx] || panels[panel_idx]->disk == nullptr)
+        return;
+    auto& panel = *panels[panel_idx];
+    QGroupBox* box = (panel_idx == 0) ? ui->groupBox : ui->groupBox_2;
+    QString disk_name = (panel_idx == 0) ? "I" : "II";
+    QString labd = short_string_to_qstring(ccos_get_disk_label(panel.disk));
+    box->setTitle(QString("Disk %1 - %2%3")
+                      .arg(disk_name, !labd.isEmpty() ? labd : "No label",
+                            panel.modified ? "*" : ""));
 }
 
 //*Parse Hard Disk MBR
@@ -457,9 +505,6 @@ int saveBox(QString disk, QWidget* parent){
 MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(std::make_unique<Ui::MainWindow>()){
     ui->setupUi(this);
 
-    // FIXME: How to enable trace in new version of ccos-disk-utils?
-    // trace_init(false);
-
     QMainWindow::setWindowTitle(QString("GRiDISK Commander v")+_PVER_);
     for (auto* tw : {ui->tableWidget, ui->tableWidget_2}) {
         tw->horizontalHeader()->resizeSection(0, 155);
@@ -471,6 +516,9 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(std::make_uniqu
         addFile(tw, 0);
         tw->verticalHeader()->hide();
         tw->setSelectionBehavior(QAbstractItemView::SelectRows);
+        tw->setContextMenuPolicy(Qt::CustomContextMenu);
+        tw->installEventFilter(this);
+        connect(tw, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(ShowPreview(QPoint)));
     }
     QFont diskfont;
     diskfont.setFamily(QString::fromUtf8("Arial"));
@@ -498,7 +546,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(std::make_uniqu
             }
             else if (!panels[0] || !panels[1]){
                 QFileInfo fil(arg);
-                if (fil.suffix().toLower() == "img" && fil.exists()){
+                if ((fil.suffix().toLower() == "img" || fil.suffix().toLower() == "imd") && fil.exists()){
                     active_panel = panels[0] ? 1 : 0;
                     LoadImg(arg);
                 }
@@ -536,6 +584,7 @@ MainWindow::MainWindow(QWidget *parent): QMainWindow(parent), ui(std::make_uniqu
     connect(ui->actionMake_dir, SIGNAL(triggered()), this, SLOT(MakeDir()));
     connect(ui->actionNewImage, SIGNAL(triggered()), this, SLOT(NewImage()));
     connect(ui->actionOpen, SIGNAL(triggered()), this, SLOT(OpenImg()));
+    connect(ui->actionPreview, SIGNAL(triggered()), this, SLOT(ShowPreview()));
     connect(ui->actionRename, SIGNAL(triggered()), this, SLOT(Rename()));
     connect(ui->actionSave, SIGNAL(triggered()), this, SLOT(Save()));
     connect(ui->actionSave_as, SIGNAL(triggered()), this, SLOT(SaveAs()));
@@ -566,11 +615,10 @@ void MainWindow::Add(){
 
 void MainWindow::AddDirs(QStringList dirs){
     auto& panel = *panels[active_panel];
-    ccos_inode_t* root = ccos_get_root_dir(&panel.disk);
+    ccos_inode_t* root = ccos_get_root_dir(panel.disk);
     for (const auto& dir : dirs) {
-        size_t frees;
-        ccos_error_t err = ccos_calc_free_space(&panel.disk, &frees);
-        if (err != CCOS_OK){
+        size_t frees = 0;
+        if (ccos_calc_free_space(panel.disk, &frees) != CCOS_OK){
             QMessageBox::critical(this, "Calculation error",
                             "Program can't calculate free space in the image!");
             break;
@@ -581,7 +629,7 @@ void MainWindow::AddDirs(QStringList dirs){
                             QString("Requires %1 bytes of additional disk space to make dir!").arg(1024-frees));
             break;
         }
-        ccos_inode_t* newdir = ccos_create_dir(&panel.disk, root, QFileInfo(dir).fileName().toStdString().c_str());
+        ccos_inode_t* newdir = ccos_create_dir(panel.disk, root, QFileInfo(dir).fileName().toStdString().c_str());
         if (newdir == nullptr){
             QMessageBox::critical(this, "Failed to create folder",
                             "Program can't create a folder in the image!");
@@ -606,17 +654,17 @@ void MainWindow::AddDirs(QStringList dirs){
 int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
     auto& panel = *panels[active_panel];
     size_t needs = 0;
-    int retop = checkFreeSp(&panel.disk, files, &needs);
+    int retop = checkFreeSp(panel.disk, files, &needs);
     if (retop == -2) {
         QMessageBox::critical(this, "Calculation error",
                         "Program can't calculate free space in the image!");
         return -1;
     }
     else if (retop == -1) {
-        size_t free;
-        ccos_calc_free_space(&panel.disk, &free);
+        size_t free_space = 0;
+        ccos_calc_free_space(panel.disk, &free_space);
         QMessageBox::critical(this, "Not enough space",
-                        QString("Requires %1 bytes of additional disk space to add!").arg(needs-free));
+                        QString("Requires %1 bytes of additional disk space to add!").arg(needs-free_space));
         return -1;
     }
     for (const auto& file : files){
@@ -649,7 +697,7 @@ int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
             }
         }
         if (readFileQt(file, &fdat, &fsiz, this) == 0){
-            if (ccos_add_file(&panel.disk, copyTo, fdat, fsiz, fname.c_str()) == nullptr){
+            if (ccos_add_file(panel.disk, copyTo, fdat, fsiz, fname.c_str()) == nullptr){
                 QMessageBox::critical(this, "Error",
                                 QString("Can't add \"%1\" to the image! Skipping...").arg(fname.c_str()));
             }
@@ -700,28 +748,43 @@ void MainWindow::AnotherPart(bool fromMenu){
 
     int topan = (fromMenu && dlg.isChecked()) ? !active_panel : active_panel;
 
-    if (usedisk != topan && panels[topan])
-        CloseImg();
+    if (usedisk != topan && panels[topan]) {
+        int saved_active = active_panel;
+        active_panel = topan;
+        int closed = CloseImg();
+        active_panel = saved_active;
+        if (!closed) {
+            refreshActivePanelUI();
+            return;
+        }
+    }
 
-    if (!panels[topan])
+    bool fresh_target = !panels[topan];
+    if (fresh_target)
         panels[topan].emplace();
 
     auto& dst = *panels[topan];
-    dst.disk = src.disk;
-    dst.disk.size = parts[selctd].size;
-    dst.disk.data = src.hdd_data->data() + parts[selctd].offset;
 
-    ccos_inode_t* root = ccos_get_root_dir(&dst.disk);
+    ccos_disk_t* new_disk = tryOpenMbrPartition(src.hdd_data->data(), parts[selctd]);
+    ccos_inode_t* root = (new_disk != nullptr) ? ccos_get_root_dir(new_disk) : nullptr;
     if (root == nullptr){
         QMessageBox::critical(this, "Incorrect Image File",
                                 "Image broken or have non-GRiD format!");
-        if (usedisk == topan){
-            src.hdd_data.reset();
-            src.hdd_mode = false;
+        if (new_disk)
+            free(new_disk);
+        if (fresh_target)
+            panels[topan].reset();
+        if ((!panels[active_panel] || panels[active_panel]->disk == nullptr)
+            && panels[usedisk] && panels[usedisk]->disk != nullptr) {
+            active_panel = usedisk;
         }
-        panels[topan].reset();
+        refreshActivePanelUI();
         return;
     }
+
+    if (dst.disk != nullptr)
+        free(dst.disk);
+    dst.disk = new_disk;
     dst.hdd_mode = true;
     dst.current_dir = root;
     if (!fromMenu || dlg.isChecked()){
@@ -730,6 +793,7 @@ void MainWindow::AnotherPart(bool fromMenu){
     }
 
     fillTable(topan, root, false);
+    refreshActivePanelUI();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event){
@@ -808,8 +872,8 @@ void MainWindow::Copy(){
             return;
         }
         else if (retop == -1) {
-            size_t frsp;
-            ccos_calc_free_space(&dst.disk, &frsp);
+            size_t frsp = 0;
+            ccos_calc_free_space(dst.disk, &frsp);
             QMessageBox::critical(this, "Not enough space",
                             QString("Requires %1 bytes of additional disk space to copy").arg(needs-frsp));
             return;
@@ -818,14 +882,14 @@ void MainWindow::Copy(){
             if (src.inodes[called[t]->row()]==nullptr)
                 continue;
             if (ccos_is_dir(src.inodes[called[t]->row()])) {
-                if (dst.current_dir->header.file_id != ccos_get_root_dir(&dst.disk)->header.file_id) {
+                if (dst.current_dir->header.file_id != ccos_get_root_dir(dst.disk)->header.file_id) {
                     QMessageBox::critical(this, "Copying to non-root",
                                     "Folders can be copied only to root folder!");
                     return;
                 }
                 char newname[CCOS_MAX_FILE_NAME] = {};
                 ccos_parse_file_name(src.inodes[called[t]->row()], newname, nullptr, nullptr, nullptr);
-                ccos_inode_t* newdir = ccos_create_dir(&dst.disk, ccos_get_root_dir(&dst.disk), newname);
+                ccos_inode_t* newdir = ccos_create_dir(dst.disk, ccos_get_root_dir(dst.disk), newname);
                 if (newdir == nullptr){
                             QMessageBox::critical(this, "Failed to create folder",
                                             "Program can't create a folder in the image!");
@@ -833,19 +897,19 @@ void MainWindow::Copy(){
                 }
                 uint16_t fils = 0;
                 ccos_inode_t** dirdata = nullptr;
-                ccos_get_dir_contents(&src.disk, src.inodes[called[t]->row()], &fils, &dirdata);
+                ccos_get_dir_contents(src.disk, src.inodes[called[t]->row()], &fils, &dirdata);
                 for (int c = 0; c < fils; c++) {
-                    ccos_copy_file(&src.disk, dirdata[c], &dst.disk, newdir);
+                    ccos_copy_file(src.disk, dirdata[c], dst.disk, newdir);
                 }
             }
             else {
-                if (dst.current_dir->header.file_id == ccos_get_root_dir(&dst.disk)->header.file_id) {
+                if (dst.current_dir->header.file_id == ccos_get_root_dir(dst.disk)->header.file_id) {
                     QMessageBox::critical(this, "Copying to root",
                                     "Files can be copied only to non-root folder!");
                     return;
                 }
-                ccos_copy_file(&src.disk, src.inodes[called[t]->row()],
-                        &dst.disk, dst.current_dir);
+                ccos_copy_file(src.disk, src.inodes[called[t]->row()],
+                        dst.disk, dst.current_dir);
             }
         }
         dst.modified = true;
@@ -884,8 +948,8 @@ void MainWindow::CopyLoc() {
         return;
     }
     else if (retop == -1) {
-        size_t frsp;
-        ccos_calc_free_space(&panel.disk, &frsp);
+        size_t frsp = 0;
+        ccos_calc_free_space(panel.disk, &frsp);
         QMessageBox::critical(this, "Not enough space",
                         QString("Requires %1 bytes of additional disk space to copy").arg(needs-frsp));
         return;
@@ -896,11 +960,11 @@ void MainWindow::CopyLoc() {
         dlg.setName("Select the directory");
         dlg.setInfo("Select the directory where the file(s) will be copied:");
 
-        ccos_inode_t* root = ccos_get_root_dir(&panel.disk);
+        ccos_inode_t* root = ccos_get_root_dir(panel.disk);
 
         uint16_t fils = 0;
         ccos_inode_t** dirdata = nullptr;
-        ccos_get_dir_contents(&panel.disk, root, &fils, &dirdata);
+        ccos_get_dir_contents(panel.disk, root, &fils, &dirdata);
 
         char basename[CCOS_MAX_FILE_NAME];
 
@@ -923,8 +987,8 @@ void MainWindow::CopyLoc() {
         for (int t = 0; t < called.size(); t+=7){
             if (panel.inodes[called[t]->row()]==nullptr)
                 continue;
-            ccos_copy_file(&panel.disk, panel.inodes[called[t]->row()],
-                    &panel.disk, dirdata[dlg.getIndex()]);
+            ccos_copy_file(panel.disk, panel.inodes[called[t]->row()],
+                    panel.disk, dirdata[dlg.getIndex()]);
         }
         panel.modified = true;
         fillTable(active_panel, panel.current_dir, panel.in_subdir);
@@ -942,9 +1006,9 @@ void MainWindow::CopyLoc() {
                 if (name == "")
                     break;
                 else if (validString(name, true, this) != -1){
-                    ccos_inode_t* root = ccos_get_root_dir(&panel.disk);
+                    ccos_inode_t* root = ccos_get_root_dir(panel.disk);
 
-                    ccos_inode_t* newdir = ccos_create_dir(&panel.disk, root, name.toStdString().c_str());
+                    ccos_inode_t* newdir = ccos_create_dir(panel.disk, root, name.toStdString().c_str());
                     if (newdir == nullptr){
                         QMessageBox::critical(this, "Failed to create folder",
                                         "Program can't create a folder in the image!");
@@ -953,11 +1017,11 @@ void MainWindow::CopyLoc() {
 
                     uint16_t fils = 0;
                     ccos_inode_t** dirdata = nullptr;
-                    ccos_get_dir_contents(&panel.disk, panel.inodes[called[t]->row()], &fils, &dirdata);
+                    ccos_get_dir_contents(panel.disk, panel.inodes[called[t]->row()], &fils, &dirdata);
 
                     for(int i = 0; i < fils; i++){
-                        ccos_copy_file(&panel.disk, dirdata[i],
-                                &panel.disk, newdir);
+                        ccos_copy_file(panel.disk, dirdata[i],
+                                panel.disk, newdir);
                     }
                     panel.modified = true;
                     fillTable(active_panel, panel.current_dir, panel.in_subdir);
@@ -993,24 +1057,22 @@ void MainWindow::Date(){
     dlg.init(file->desc.name, cre, mod, exp);
     if (dlg.exec()){
         dlg.retDates(&cre, &mod, &exp);
-        ccos_set_creation_date(&panel.disk, file, cre);
-        ccos_set_mod_date(&panel.disk, file, mod);
-        ccos_set_exp_date(&panel.disk, file, exp);
+        ccos_set_creation_date(panel.disk, file, cre);
+        ccos_set_mod_date(panel.disk, file, mod);
+        ccos_set_exp_date(panel.disk, file, exp);
         panel.modified = true;
         fillTable(active_panel, panel.current_dir, panel.in_subdir);
     }
 }
 
 void MainWindow::DebTrace(){
-    if (!ui->actionDebtrace->isChecked()){
-        TRACE("ccos_image debug trace disabled");
-    }
-
-    // FIXME: How to enable trace in new version of ccos-disk-utils?
-    // trace_init(ui->actionDebtrace->isChecked());
-
     if (ui->actionDebtrace->isChecked()){
+        trace = fprintf;
         TRACE("ccos_image debug trace enabled");
+    }
+    else{
+        TRACE("ccos_image debug trace disabled");
+        trace = nullptr;
     }
 }
 
@@ -1038,7 +1100,7 @@ void MainWindow::Delete(){
         for (int t = 0; t< called.size(); t+=7){
             if (panel.inodes[called[t]->row()]==nullptr)
                 continue;
-            ccos_delete_file(&panel.disk, panel.inodes[called[t]->row()]);
+            ccos_delete_file(panel.disk, panel.inodes[called[t]->row()]);
         }
         panel.modified = true;
         fillTable(active_panel, panel.current_dir, panel.in_subdir);
@@ -1068,7 +1130,7 @@ void MainWindow::dropEvent(QDropEvent* event){
 
     if (FilesList.size() == 1 && DirsList.isEmpty()) {
         QString ext = QFileInfo(FilesList[0]).suffix().toLower();
-        if (ext == "img") {
+        if (ext == "img" || ext == "imd") {
             LoadImg(FilesList[0]);
         }
         else if (panels[active_panel] && panels[active_panel]->in_subdir) {
@@ -1097,16 +1159,16 @@ void MainWindow::Extract(){
         if (called.size() == 7 && panel.inodes[called[0]->row()] == nullptr)
             return;
         QString todir = QFileDialog::getExistingDirectory(this, tr("Extract to"), "",
-                                                          QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+            QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks | QFileDialog::DontUseNativeDialog);
         if (todir == "")
             return;
         for (int t = 0; t < called.size(); t+=7){
             if (panel.inodes[called[t]->row()]==nullptr)
                 continue;
             if (ccos_is_dir(panel.inodes[called[t]->row()]))
-                dumpDirQt(&panel.disk, panel.inodes[called[t]->row()], todir, this);
+                dumpDirQt(panel.disk, panel.inodes[called[t]->row()], todir, this);
             else
-                dumpFileQt(&panel.disk, panel.inodes[called[t]->row()], todir, this);
+                dumpFileQt(panel.disk, panel.inodes[called[t]->row()], todir, this);
         }
     }
 }
@@ -1115,31 +1177,34 @@ void MainWindow::ExtractAll(){
     if (panels[active_panel]){
         auto& panel = *panels[active_panel];
         QString todir = QFileDialog::getExistingDirectory(this, tr("Extract all to"), "",
-                                                          QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+            QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks | QFileDialog::DontUseNativeDialog);
         if (todir == "")
             return;
-        int res = dumpImgQt(&panel.disk, todir, QFileInfo(panel.path).baseName(), this);
+        int res = dumpImgQt(panel.disk, todir, QFileInfo(panel.path).baseName(), this);
         if (res == -1){
             QMessageBox::critical(this, "Unable to extract image", "Unable to extract image. Please check the path.");
         }
     }
 }
 
+void MainWindow::refreshActivePanelUI(){
+    QFont font = ui->groupBox->font();
+    font.setBold(active_panel == 0);
+    ui->groupBox->setFont(font);
+    ui->tableWidget->setFont(font);
+
+    font = ui->groupBox_2->font();
+    font.setBold(active_panel == 1);
+    ui->groupBox_2->setFont(font);
+    ui->tableWidget_2->setFont(font);
+
+    HDDMenu(panels[active_panel] && panels[active_panel]->hdd_mode);
+}
+
 void MainWindow::FocusChanged(QWidget *, QWidget *now){
     if (now == ui->tableWidget || now == ui->tableWidget_2){
         active_panel = (now == ui->tableWidget_2) ? 1 : 0;
-
-        QFont font = ui->groupBox->font();
-        font.setBold(active_panel == 0);
-        ui->groupBox->setFont(font);
-        ui->tableWidget->setFont(font);
-
-        font = ui->groupBox_2->font();
-        font.setBold(active_panel == 1);
-        ui->groupBox_2->setFont(font);
-        ui->tableWidget_2->setFont(font);
-
-        HDDMenu(panels[active_panel] && panels[active_panel]->hdd_mode);
+        refreshActivePanelUI();
     }
 }
 
@@ -1147,6 +1212,66 @@ void MainWindow::HDDMenu(bool enab){
     ui->actionAct_part->setEnabled(enab);
     ui->actionAno_part->setEnabled(enab);
     ui->actionSep_save->setEnabled(enab);
+}
+
+bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
+    if (event->type() != QEvent::KeyPress) {
+        return QMainWindow::eventFilter(obj, event);
+    }
+
+    const int panel_idx = (obj == ui->tableWidget_2) ? 1 : 0;
+
+    auto* keyEvent = static_cast<QKeyEvent*>(event);
+    switch (keyEvent->key()) {
+        case Qt::Key_Escape:
+        {
+            if (goToParentDir(panel_idx)) {
+                return true;
+            }
+            break;
+        }
+    }
+
+    return QMainWindow::eventFilter(obj, event);
+}
+
+void MainWindow::doPreview(int panel_idx, ccos_inode_t* file){
+    if (!panels[panel_idx] || file == nullptr)
+        return;
+    if (ccos_is_dir(file))
+        return;
+    PreviewDlg dlg(panels[panel_idx]->disk, file, this);
+    dlg.exec();
+}
+
+void MainWindow::ShowPreview(const QPoint& pos){
+    QTableWidget* tw = qobject_cast<QTableWidget*>(sender());
+    if (tw == nullptr)
+        return;
+    int panel_idx = (tw == ui->tableWidget_2) ? 1 : 0;
+    if (!panels[panel_idx])
+        return;
+    auto& panel = *panels[panel_idx];
+
+    QTableWidgetItem* it = tw->itemAt(pos);
+    if (it == nullptr)
+        return;
+    int row = it->row();
+    if (row < 0 || row >= static_cast<int>(panel.inodes.size()))
+        return;
+    doPreview(panel_idx, panel.inodes[row]);
+}
+
+void MainWindow::ShowPreview(){
+    int panel_idx = active_panel;
+    if (!panels[panel_idx])
+        return;
+    auto& panel = *panels[panel_idx];
+    QTableWidget* tw = panel_idx ? ui->tableWidget_2 : ui->tableWidget;
+    int row = tw->currentRow();
+    if (row < 0 || row >= static_cast<int>(panel.inodes.size()))
+        return;
+    doPreview(panel_idx, panel.inodes[row]);
 }
 
 void MainWindow::Label(){
@@ -1157,14 +1282,14 @@ void MainWindow::Label(){
             dsk= "I";
         else
             dsk= "II";
-        const short_string_t* fname = ccos_get_disk_label(&panel.disk);
+        QString fname = short_string_to_qstring(ccos_get_disk_label(panel.disk));
         QString nameQ = QInputDialog::getText(this, tr("New label"),
-                                              QString("Set new label for the disk %1:").arg(dsk), QLineEdit::Normal, QString::fromLatin1(fname->data, fname->length));
+                                              QString("Set new label for the disk %1:").arg(dsk), QLineEdit::Normal, fname);
 
         if (validString(nameQ, false, this) == -1)
             return;
 
-        ccos_set_disk_label(&panel.disk, nameQ.toStdString().c_str());
+        ccos_set_disk_label(panel.disk, nameQ.toStdString().c_str());
         panel.modified = true;
         fillTable(active_panel, panel.current_dir, panel.in_subdir);
     }
@@ -1205,57 +1330,60 @@ bool MainWindow::suggestSelectAnotherPartition() {
     return msgBox.exec() == QMessageBox::Yes;
 }
 
-static std::optional<ccos_disk_t> tryOpenAs(
+static ccos_disk_t* tryOpenAs(
     uint8_t* data, size_t size, uint16_t sector_size, uint16_t superblock_fid, uint16_t bitmap_fid
 ) {
-    ccos_disk_t disk = { sector_size, superblock_fid, bitmap_fid, size, data };
-
-    // Open the root directory using values from the disk structure.
-    ccos_inode_t* root = ccos_get_root_dir(&disk);
-    if (root == nullptr) {
-        return std::nullopt;
-    } else {
-        return std::optional<ccos_disk_t>(disk);
+    ccos_disk_t* disk = (sector_size == GRID_BUBBLE_SECTOR_SIZE)
+        ? ccos_disk_new_bubble(data, size, superblock_fid, bitmap_fid)
+        : ccos_disk_new_extdisk(data, size, superblock_fid, bitmap_fid);
+    if (disk == nullptr) {
+        return nullptr;
     }
+
+    ccos_inode_t* root = ccos_get_root_dir(disk);
+    if (root == nullptr) {
+        free(disk);
+        return nullptr;
+    }
+
+    return disk;
 }
 
-static std::optional<ccos_disk_t> tryFromBootsector(uint8_t* data, size_t size) {
-    if (size < 512) {
-        return std::nullopt;
+static ccos_disk_t* tryFromBootsector(uint8_t* data, size_t size) {
+    if (size < sizeof(ccos_boot_sector_t)) {
+        return nullptr;
     }
 
-    const ccos_boot_sector_t* boot_sector = (const ccos_boot_sector_t*)data;
-
-    uint16_t superblock = boot_sector->superblock_fid;
-    uint16_t bitmap = boot_sector->bitmap_fid;
+    const ccos_boot_sector_t* boot = (const ccos_boot_sector_t*)data;
+    uint16_t superblock = boot->superblock_fid;
+    uint16_t bitmap = boot->bitmap_fid;
 
     if (superblock == 0 || bitmap == 0) {
-        return std::nullopt;
+        return nullptr;
     }
 
-    return tryOpenAs(data, size, 512, superblock, bitmap);
+    return tryOpenAs(data, size, GRID_FLOPPY_SECTOR_SIZE, superblock, bitmap);
 }
 
-static std::optional<ccos_disk_t> tryDetectBySize(uint8_t* data, size_t size) {
-    if (size == 384 * 1024) {
-        return tryOpenAs(data, size,
-            GRID_BUBBLE_SECTOR_SIZE, GRID_BUBBLE_SUPERBLOCK_FID, GRID_BUBBLE_BITMAP_FID);
-    }
-    if (size == 360 * 1024 || size == 720 * 1024) {
-        return tryOpenAs(data, size,
-            GRID_FLOPPY_SECTOR_SIZE, GRID_FLOPPY_SUPERBLOCK_FID, GRID_FLOPPY_BITMAP_FID);
+static ccos_disk_t* tryDetectBySize(uint8_t* data, size_t size) {
+    ccos_disk_t* disk = tryOpenAs(data, size,
+        GRID_BUBBLE_SECTOR_SIZE, GRID_BUBBLE_SUPERBLOCK_FID, GRID_BUBBLE_BITMAP_FID);
+    if (disk) {
+        return disk;
     }
 
-    if (size == 10 * 1024 * 1024 || size == 20 * 1024 * 1024) {
-        return tryOpenAs(data, size,
-            GRID_HDD_SECTOR_SIZE, GRID_HDD_SUPERBLOCK_FID, GRID_HDD_BITMAP_FID);
+    disk = tryOpenAs(data, size,
+        GRID_FLOPPY_SECTOR_SIZE, GRID_FLOPPY_SUPERBLOCK_FID, GRID_FLOPPY_BITMAP_FID);
+    if (disk) {
+        return disk;
     }
 
-    return std::nullopt;
+    return tryOpenAs(data, size,
+        GRID_HDD_SECTOR_SIZE, GRID_HDD_SUPERBLOCK_FID, GRID_HDD_BITMAP_FID);
 }
 
-void MainWindow::openValidNonMbrDisk(QString path, ccos_disk_t disk) {
-    ccos_inode_t* root = ccos_get_root_dir(&disk);
+void MainWindow::openValidNonMbrDisk(QString path, ccos_disk_t* disk) {
+    ccos_inode_t* root = ccos_get_root_dir(disk);
     Q_ASSERT(root != nullptr);
 
     panels[active_panel].emplace();
@@ -1273,8 +1401,8 @@ static bool isMbrDisk(const uint8_t* data, size_t size) {
     return size > 0x200 && data[0x1FE] == 0x55 && data[0x1FF] == 0xAA;
 }
 
-static std::optional<ccos_disk_t> tryOpenMbrPartition(uint8_t* data, MbrPartition& partition) {
-    std::optional<ccos_disk_t> disk = tryFromBootsector(data + partition.offset, partition.size);
+static ccos_disk_t* tryOpenMbrPartition(uint8_t* data, MbrPartition& partition) {
+    ccos_disk_t* disk = tryFromBootsector(data + partition.offset, partition.size);
     if (disk) {
         return disk;
     }
@@ -1323,9 +1451,9 @@ void MainWindow::tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size)
 
         int selected = dlg.getIndex();
 
-        std::optional<ccos_disk_t> disk = tryOpenMbrPartition(hdd_data.data(), parts[selected]);
+        ccos_disk_t* disk = tryOpenMbrPartition(hdd_data.data(), parts[selected]);
         if (disk) {
-            openValidMbrPartition(path, std::move(hdd_data), selected, *disk);
+            openValidMbrPartition(path, std::move(hdd_data), selected, disk);
             break;
         }
 
@@ -1334,8 +1462,8 @@ void MainWindow::tryToOpenValidMbrDisk(QString path, uint8_t* data, size_t size)
     }
 }
 
-void MainWindow::openValidMbrPartition(QString path, std::vector<uint8_t> hdd_data, int partition_index, ccos_disk_t disk) {
-    ccos_inode_t* root = ccos_get_root_dir(&disk);
+void MainWindow::openValidMbrPartition(QString path, std::vector<uint8_t> hdd_data, int partition_index, ccos_disk_t* disk) {
+    ccos_inode_t* root = ccos_get_root_dir(disk);
     Q_ASSERT(root != nullptr);
 
     panels[active_panel].emplace();
@@ -1372,13 +1500,13 @@ void MainWindow::loadCustomImg(QString path, uint8_t* data, size_t size) {
             break;
         }
 
-        uint16_t sector_size, superblock;
-        cdlg.GetParams(&sector_size, &superblock, nullptr, nullptr);
+        uint16_t sector_size, superblock, bitmap;
+        cdlg.GetParams(&sector_size, &superblock, &bitmap, nullptr, nullptr);
 
-        // TODO: Allow to select bitmask.
-        std::optional<ccos_disk_t> disk = tryOpenAs(data, size, sector_size, superblock, superblock-1);
+        ccos_disk_t* disk = tryOpenAs(data, size, sector_size, superblock, bitmap);
         if (disk) {
-            openValidNonMbrDisk(path, *disk);
+            openValidNonMbrDisk(path, disk);
+            return;
         }
 
         QMessageBox::critical(this, "Failed to open",
@@ -1386,7 +1514,32 @@ void MainWindow::loadCustomImg(QString path, uint8_t* data, size_t size) {
     }
 }
 
+// IMD-aware entry point: if the file is an .IMD image, convert it to a
+// temporary raw .img first, run the standard opening pipeline, then mark
+// the resulting panel so that direct Save back to IMD is blocked.
 void MainWindow::LoadImg(QString path) {
+    if (path.isEmpty()) {
+        return;
+    }
+
+    bool fromImd = false;
+    if (QFileInfo(path).suffix().toLower() == "imd") {
+        QString tempImg = convertImdToTempImg(path, this);
+        if (tempImg.isEmpty()) {
+            return;
+        }
+        fromImd = true;
+        path = tempImg;
+    }
+
+    loadImgStandard(path);
+
+    if (fromImd && panels[active_panel] && panels[active_panel]->disk) {
+        panels[active_panel]->is_imd = true;
+    }
+}
+
+void MainWindow::loadImgStandard(QString path) {
     if (path.isEmpty()) {
         return;
     }
@@ -1406,15 +1559,15 @@ void MainWindow::LoadImg(QString path) {
         return;
     }
 
-    std::optional<ccos_disk_t> disk = tryFromBootsector(data, size);
+    ccos_disk_t* disk = tryFromBootsector(data, size);
     if (disk) {
-        openValidNonMbrDisk(path, *disk);
+        openValidNonMbrDisk(path, disk);
         return;
     }
 
     disk = tryDetectBySize(data, size);
     if (disk) {
-        openValidNonMbrDisk(path, *disk);
+        openValidNonMbrDisk(path, disk);
         return;
     }
 
@@ -1441,9 +1594,8 @@ void MainWindow::MakeDir(){
             if (name == "")
                 break;
             else if (validString(name, true, this) != -1){
-                size_t frsp;
-                ccos_error_t err = ccos_calc_free_space(&panel.disk, &frsp);
-                if (err != CCOS_OK) {
+                size_t frsp = 0;
+                if (ccos_calc_free_space(panel.disk, &frsp) != CCOS_OK) {
                     QMessageBox::critical(this, "Calculation error",
                                     "Program can't calculate free space in the image!");
                     break;
@@ -1453,8 +1605,8 @@ void MainWindow::MakeDir(){
                                     QString("Requires %1 bytes of additional disk space to make dir!").arg(1024-frsp));
                     break;
                 }
-                ccos_inode_t* root = ccos_get_root_dir(&panel.disk);
-                if (ccos_create_dir(&panel.disk, root, name.toStdString().c_str()) == nullptr){
+                ccos_inode_t* root = ccos_get_root_dir(panel.disk);
+                if (ccos_create_dir(panel.disk, root, name.toStdString().c_str()) == nullptr){
                     QMessageBox::critical(this, "Failed to create folder",
                                     "Program can't create a folder in the image!");
                     break;
@@ -1477,7 +1629,7 @@ void MainWindow::NewImage(){
         if (dlg.exec() == 1) {
             uint16_t sect, subl, isize;
             QString labl;
-            dlg.GetParams(&sect, &subl, &isize, &labl);
+            dlg.GetParams(&sect, &subl, nullptr, &isize, &labl);
 
             if (labl != "" && validString(labl, false, this) == -1) {
                 continue;
@@ -1496,11 +1648,11 @@ void MainWindow::NewImage(){
             }
 
             if (labl != "") {
-                ccos_set_disk_label(&panel.disk, labl.toStdString().c_str());
+                ccos_set_disk_label(panel.disk, labl.toStdString().c_str());
             }
 
             panel.modified = true;
-            ccos_inode_t* root = ccos_get_root_dir(&panel.disk);
+            ccos_inode_t* root = ccos_get_root_dir(panel.disk);
             panel.current_dir = root;
             fillTable(active_panel, root, false);
             break;
@@ -1524,28 +1676,44 @@ void MainWindow::OpenDir(){
         if (dir == nullptr && !panel.in_subdir)
             return;
         if (called->row() == 0 && panel.in_subdir){
-            ccos_inode_t* root = ccos_get_root_dir(&panel.disk);
-            panel.current_dir = ccos_get_parent_dir(&panel.disk, panel.current_dir);
-            if (panel.current_dir == root)
-                panel.in_subdir = false;
-            fillTable(active_panel, panel.current_dir, panel.in_subdir);
+            goToParentDir(active_panel);
         }
         else if (!panel.in_subdir){ //All files in the root are directories
             panel.current_dir = dir;
             panel.in_subdir = true;
             fillTable(active_panel, dir, panel.in_subdir);
         }
+        else if (!ccos_is_dir(dir)) {
+            doPreview(active_panel, dir);
+        }
     }
+}
+
+bool MainWindow::goToParentDir(int panel_idx) {
+    if (!panels[panel_idx]) {
+        return false;
+    }
+    auto& panel = *panels[panel_idx];
+    if (!panel.in_subdir) {
+        return false;  // already at the disk root, nothing above it
+    }
+    ccos_inode_t* root = ccos_get_root_dir(panel.disk);
+    panel.current_dir = ccos_get_parent_dir(panel.disk, panel.current_dir);
+    if (panel.current_dir == root) {
+        panel.in_subdir = false;
+    }
+    fillTable(panel_idx, panel.current_dir, panel.in_subdir);
+    return true;
 }
 
 void MainWindow::OpenImg(){
     QString path = QFileDialog::getOpenFileName(this, "Open Image", "",
-                                                 "GRiD image files (*.img);;"
+                                                 "GRiD image files (*.img *.imd);;"
                                                  "All files (*)");
     LoadImg(path);
 }
 
-void  MainWindow::Rename(){
+void MainWindow::Rename(){
     if (panels[active_panel]){
         auto& panel = *panels[active_panel];
         QTableWidget* tw;
@@ -1587,10 +1755,10 @@ void  MainWindow::Rename(){
                                               "File name or type can't be empty!");
                     }
                     else if (validString(newname, true, this) != -1 && validString(newtype, true, this) != -1){
-                        ccos_rename_file(&panel.disk, reninode, newname.toStdString().c_str(),
+                        ccos_rename_file(panel.disk, reninode, newname.toStdString().c_str(),
                                          newtype.toStdString().c_str());
                         panel.modified = true;
-                        fillTable(active_panel, ccos_get_parent_dir(&panel.disk, reninode),
+                        fillTable(active_panel, ccos_get_parent_dir(panel.disk, reninode),
                                   panel.in_subdir);
                         break;
                     }
@@ -1607,33 +1775,37 @@ void MainWindow::Save(){
     if (!panels[active_panel] || panels[active_panel]->path == "")
         return SaveAs();
 
-    auto& panel = *panels[active_panel];
-    QGroupBox* gb;
-    if (panel.modified){
-        if (active_panel == 0)
-            gb = ui->groupBox;
-        else
-            gb = ui->groupBox_2;
-
-        int res;
-        if (panel.hdd_mode){
-            res = saveFileQt(panel.path, panel.hdd_data->data(), panel.hdd_data->size(), this);
-        }
-        else{
-            res = saveFileQt(panel.path, panel.disk.data, panel.disk.size, this);
-        }
-
-        if (res == -1){
-            QMessageBox::critical(this, "Unable to save file",
-                            QString("Unable to save file \"%1\". Please check the path.").arg(panel.path));
-            return;
-        }
-        panel.modified = false;
-        int other = !active_panel;
-        if (panel.hdd_data && panel.hdd_data.use_count() > 1 && panels[other])
-            panels[other]->modified = false;
-        gb->setTitle(gb->title().left(gb->title().size()-1));
+    if (panels[active_panel]->is_imd) {
+        QMessageBox::warning(this, "Saving IMD is not supported",
+                        "This image was opened from an IMD file.\n"
+                        "Saving back to IMD format is not supported.\n\n"
+                        "Please use \"Save as\" to export the image as a .img file.");
+        return;
     }
+
+    auto& panel = *panels[active_panel];
+    if (!panel.modified)
+        return;
+
+    int res;
+    if (panel.hdd_mode)
+        res = saveFileQt(panel.path, panel.hdd_data->data(), panel.hdd_data->size(), this);
+    else
+        res = saveFileQt(panel.path, ccos_disk_data(panel.disk), ccos_disk_size(panel.disk), this);
+
+    if (res == -1){
+        QMessageBox::critical(this, "Unable to save file",
+                        QString("Unable to save file \"%1\". Please check the path.").arg(panel.path));
+        return;
+    }
+    panel.modified = false;
+    int other = !active_panel;
+    bool shared = panel.hdd_data && panel.hdd_data.use_count() > 1 && panels[other];
+    if (shared)
+        panels[other]->modified = false;
+    updatePanelTitle(active_panel);
+    if (shared)
+        updatePanelTitle(other);
 }
 
 void MainWindow::SaveAs(){
@@ -1641,35 +1813,40 @@ void MainWindow::SaveAs(){
         return;
 
     auto& panel = *panels[active_panel];
-    QGroupBox* gb;
-    if (active_panel == 0)
-        gb = ui->groupBox;
-    else
-        gb = ui->groupBox_2;
     QString nameQ = QFileDialog::getSaveFileName(this, tr("Save as"), "", "GRiD Image Files (*.img)");
     if (nameQ == "")
         return;
 
     int res;
-    if (panel.hdd_mode){
+    if (panel.hdd_mode)
         res = saveFileQt(nameQ, panel.hdd_data->data(), panel.hdd_data->size(), this);
-    }
-    else{
-        res = saveFileQt(nameQ, panel.disk.data, panel.disk.size, this);
-    }
+    else
+        res = saveFileQt(nameQ, ccos_disk_data(panel.disk), ccos_disk_size(panel.disk), this);
 
     if (res == -1){
         QMessageBox::critical(this, "Unable to save file",
                               QString("Unable to save file \"%1\". Please check the path.").arg(nameQ));
         return;
     }
-    panel.path = nameQ;
+    if (panel.is_imd){
+        // The old path pointed to a temporary converted image; drop it and
+        // turn this into a normal standalone .img from now on.
+        QString oldTemp = panel.path;
+        panel.path = nameQ;
+        QFile::remove(oldTemp);
+        panel.is_imd = false;
+    } else {
+        panel.path = nameQ;
+    }
     if (panel.modified){
-        gb->setTitle(gb->title().left(gb->title().size()-1));
         panel.modified = false;
         int other = !active_panel;
-        if (panel.hdd_data && panel.hdd_data.use_count() > 1 && panels[other])
+        bool shared = panel.hdd_data && panel.hdd_data.use_count() > 1 && panels[other];
+        if (shared)
             panels[other]->modified = false;
+        updatePanelTitle(active_panel);
+        if (shared)
+            updatePanelTitle(other);
     }
 }
 
@@ -1678,25 +1855,27 @@ void MainWindow::SavePart(){
     panel.hdd_mode = false;
     bool oldch = panel.modified;
     panel.modified = true;
-    QGroupBox* gb;
-    if (active_panel == 0)
-        gb = ui->groupBox;
-    else
-        gb = ui->groupBox_2;
-    gb->setTitle(gb->title()+' ');
     SaveAs();
 
     if (!panel.modified){
-        uint8_t* imdat = (uint8_t*)calloc(panel.disk.size, sizeof(uint8_t));
-        memcpy(imdat, panel.disk.data, panel.disk.size);
-        panel.disk.data = imdat;
+        // Detach the partition data from the shared HDD buffer by copying it
+        // into a standalone buffer owned by a new disk handle.
+        size_t dsize = ccos_disk_size(panel.disk);
+        uint8_t* imdat = (uint8_t*)calloc(dsize, sizeof(uint8_t));
+        memcpy(imdat, ccos_disk_data(panel.disk), dsize);
+        ccos_disk_t* new_disk = (ccos_disk_sector_size(panel.disk) == GRID_BUBBLE_SECTOR_SIZE)
+            ? ccos_disk_new_bubble(imdat, dsize, ccos_disk_superblock(panel.disk), ccos_disk_bitmap(panel.disk))
+            : ccos_disk_new_extdisk(imdat, dsize, ccos_disk_superblock(panel.disk), ccos_disk_bitmap(panel.disk));
+        // The old handle wraps data inside hdd_data, so release the handle only.
+        free(panel.disk);
+        panel.disk = new_disk;
         panel.hdd_data.reset();
     }
     else{
         panel.hdd_mode = true;
         panel.modified = oldch;
-        gb->setTitle(gb->title().left(gb->title().size()-1));
     }
+    updatePanelTitle(active_panel);
 }
 
 void MainWindow::SetActivePart() {
@@ -1745,7 +1924,7 @@ void MainWindow::Version(){
             dlg.init(file->desc.name, ver);
             if (dlg.exec() == 1){
                 ver = dlg.retVer();
-                ccos_set_file_version(&panel.disk, file, ver);
+                ccos_set_file_version(panel.disk, file, ver);
                 panel.modified = true;
                 fillTable(active_panel, panel.current_dir, panel.in_subdir);
             }

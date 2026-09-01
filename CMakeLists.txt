@@ -4,10 +4,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(ccos_image)
 
-project(GRiDISKCOM LANGUAGES CXX)
+project(GRiDISKCOM LANGUAGES CXX C)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 include_directories(ccos_image)
+include_directories(imd2raw)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -25,6 +26,8 @@ endif()
 
 add_executable(GRiDISKCOM ${GUI_TYPE}
         main.cpp
+        imd2raw/imd2raw.c
+        imd2raw/imd2raw.h
         dialogs/mainwindow.cpp
         dialogs/mainwindow.h
         dialogs/mainwindow.ui
@@ -40,6 +43,21 @@ add_executable(GRiDISKCOM ${GUI_TYPE}
         dialogs/datedlg.cpp
         dialogs/datedlg.h
         dialogs/datedlg.ui
+        dialogs/preview/filepreview.h
+        dialogs/preview/omf/omf_record.cpp
+        dialogs/preview/omf/omf_record.h
+        dialogs/preview/textpreview.cpp
+        dialogs/preview/textpreview.h
+        dialogs/preview/canvaspreview.cpp
+        dialogs/preview/canvaspreview.h
+        dialogs/preview/fontpreview.cpp
+        dialogs/preview/fontpreview.h
+        dialogs/preview/worksheetpreview.cpp
+        dialogs/preview/worksheetpreview.h
+        dialogs/preview/databasepreview.cpp
+        dialogs/preview/databasepreview.h
+        dialogs/preview/previewdlg.cpp
+        dialogs/preview/previewdlg.h
         dialogs/rendlg.cpp
         dialogs/rendlg.h
         dialogs/rendlg.ui

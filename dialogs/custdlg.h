@@ -13,12 +13,13 @@ class CustDlg : public QDialog
 
 public slots:
     void SblFocus(bool activ);
+    void BmpFocus(bool activ);
     void SizFocus(bool activ);
 
 public:
     explicit CustDlg(QWidget *parent = nullptr, bool openMode = false);
     ~CustDlg();
-    void GetParams(uint16_t* sect, uint16_t* subl, uint16_t* isize, QString* labl);
+    void GetParams(uint16_t* sect, uint16_t* subl, uint16_t* bmp, uint16_t* isize, QString* labl);
 
 private:
     Ui::CustDlg *ui;

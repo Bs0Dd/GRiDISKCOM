@@ -26,6 +26,14 @@ git submodule init
 git submodule update
 ```
 
+## Building
+Configure and build the project in a `build` directory with CMake:
+```
+cmake -S . -B build
+cmake --build build
+```
+After building, the resulting `GRiDISKCOM` executable will be located in the `build` directory.
+
 ## Special thanks to
 * [BOOtak](https://github.com/BOOtak) for first testing, bugfixes and [core library](https://github.com/BOOtak/CCOS-disk-utils) for this application.
 * [vklachkov](https://github.com/vklachkov) for the current project maintenance.

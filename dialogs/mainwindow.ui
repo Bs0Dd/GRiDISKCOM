@@ -499,6 +499,7 @@
     <addaction name="actionRename"/>
     <addaction name="actionDelete"/>
     <addaction name="actionMake_dir"/>
+    <addaction name="actionPreview"/>
     <addaction name="separator"/>
     <addaction name="actionChange_label"/>
     <addaction name="separator"/>
@@ -661,6 +662,17 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+X</string>
+   </property>
+  </action>
+  <action name="actionPreview">
+   <property name="text">
+    <string>Preview</string>
+   </property>
+   <property name="font">
+    <font/>
+   </property>
+   <property name="shortcut">
+    <string>F3</string>
    </property>
   </action>
   <action name="actionChange_label">

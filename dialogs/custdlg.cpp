@@ -12,14 +12,15 @@ CustDlg::CustDlg(QWidget *parent, bool openMode) :
     ui->spinBox->setFont(HexFont);
 
     connect(ui->radioButton_5, SIGNAL(toggled(bool)), this, SLOT(SblFocus(bool)));
+    connect(ui->radioButton_12, SIGNAL(toggled(bool)), this, SLOT(BmpFocus(bool)));
     connect(ui->radioButton_9, SIGNAL(toggled(bool)), this, SLOT(SizFocus(bool)));
 
     if (openMode) {
         ui->groupBox_3->setVisible(false);
         ui->groupBox_4->setVisible(false);
         CustDlg::setWindowTitle("Custom image opening");
-        CustDlg::setMinimumHeight(245);
-        CustDlg::setMaximumHeight(245);
+        CustDlg::setMinimumHeight(380);
+        CustDlg::setMaximumHeight(380);
     }
 }
 
@@ -39,8 +40,16 @@ void CustDlg::SizFocus(bool activ) {
     }
 }
 
+void CustDlg::BmpFocus(bool activ) {
+    ui->spinBox_3->setEnabled(activ);
+    if (activ) {
+        ui->spinBox_3->setFocus();
+        ui->spinBox_3->selectAll();
+    }
+}
 
-void CustDlg::GetParams(uint16_t* sect, uint16_t* subl, uint16_t* isize, QString* labl) {
+
+void CustDlg::GetParams(uint16_t* sect, uint16_t* subl, uint16_t* bmp, uint16_t* isize, QString* labl) {
     *sect = ui->radioButton->isChecked() ? 512 : 256;
 
     if (ui->radioButton_3->isChecked()) {
@@ -51,6 +60,18 @@ void CustDlg::GetParams(uint16_t* sect, uint16_t* subl, uint16_t* isize, QString
     }
     else {
         *subl = ui->spinBox->value();
+    }
+
+    if (bmp != NULL) {
+        if (ui->radioButton_10->isChecked()) {
+            *bmp = 0x120;
+        }
+        else if (ui->radioButton_11->isChecked()) {
+            *bmp = 0x3FD;
+        }
+        else {
+            *bmp = ui->spinBox_3->value();
+        }
     }
 
     if (isize != NULL) {
