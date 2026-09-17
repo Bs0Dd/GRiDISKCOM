@@ -6,10 +6,6 @@ add_subdirectory(ccos_image)
 
 project(GRiDISKCOM LANGUAGES CXX C)
 
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-include_directories(ccos_image)
-include_directories(imd2raw)
-
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -24,47 +20,63 @@ if(WIN32)
     set(GUI_TYPE WIN32)
 endif()
 
+include_directories(${CMAKE_SOURCE_DIR})
+include_directories(ccos_image)
+include_directories(ui)
+include_directories(ui/dialogs)
+include_directories(ui/preview)
+include_directories(common)
+
+
 add_executable(GRiDISKCOM ${GUI_TYPE}
         main.cpp
-        imd2raw/imd2raw.c
-        imd2raw/imd2raw.h
-        dialogs/mainwindow.cpp
-        dialogs/mainwindow.h
-        dialogs/mainwindow.ui
-        dialogs/abdlg.cpp
-        dialogs/abdlg.h
-        dialogs/abdlg.ui
-        dialogs/chsedlg.cpp
-        dialogs/chsedlg.h
-        dialogs/chsedlg.ui
-        dialogs/custdlg.cpp
-        dialogs/custdlg.h
-        dialogs/custdlg.ui
-        dialogs/datedlg.cpp
-        dialogs/datedlg.h
-        dialogs/datedlg.ui
-        dialogs/preview/filepreview.h
-        dialogs/preview/omf/omf_record.cpp
-        dialogs/preview/omf/omf_record.h
-        dialogs/preview/textpreview.cpp
-        dialogs/preview/textpreview.h
-        dialogs/preview/canvaspreview.cpp
-        dialogs/preview/canvaspreview.h
-        dialogs/preview/fontpreview.cpp
-        dialogs/preview/fontpreview.h
-        dialogs/preview/worksheetpreview.cpp
-        dialogs/preview/worksheetpreview.h
-        dialogs/preview/databasepreview.cpp
-        dialogs/preview/databasepreview.h
-        dialogs/preview/previewdlg.cpp
-        dialogs/preview/previewdlg.h
-        dialogs/rendlg.cpp
-        dialogs/rendlg.h
-        dialogs/rendlg.ui
-        dialogs/verdlg.cpp
-        dialogs/verdlg.h
-        dialogs/verdlg.ui
-        icon/icon.qrc
+        common/imd2raw.c
+        common/imd2raw.h
+        common/diskconstants.h
+        common/mbr.cpp
+        common/mbr.h
+        common/omf_record.cpp
+        common/omf_record.h
+        ui/mainwindow.cpp
+        ui/mainwindow.h
+        ui/mainwindow.ui
+        ui/filepanelwidget.cpp
+        ui/filepanelwidget.h
+        ui/themedicon.h
+        ui/dialogs/about.cpp
+        ui/dialogs/about.h
+        ui/dialogs/about.ui
+        ui/dialogs/customdisk.cpp
+        ui/dialogs/customdisk.h
+        ui/dialogs/customdisk.ui
+        ui/dialogs/imagewizard.cpp
+        ui/dialogs/imagewizard.h
+        ui/dialogs/date.cpp
+        ui/dialogs/date.h
+        ui/dialogs/date.ui
+        ui/dialogs/partition.cpp
+        ui/dialogs/partition.h
+        ui/dialogs/partition.ui
+        ui/dialogs/rename.cpp
+        ui/dialogs/rename.h
+        ui/dialogs/rename.ui
+        ui/dialogs/version.cpp
+        ui/dialogs/version.h
+        ui/dialogs/version.ui
+        ui/preview/file.h
+        ui/preview/dialog.cpp
+        ui/preview/dialog.h
+        ui/preview/text.cpp
+        ui/preview/text.h
+        ui/preview/canvas.cpp
+        ui/preview/canvas.h
+        ui/preview/font.cpp
+        ui/preview/font.h
+        ui/preview/worksheet.cpp
+        ui/preview/worksheet.h
+        ui/preview/database.cpp
+        ui/preview/database.h
+        ui/resources/icon.qrc
         execico.rc
         )
 

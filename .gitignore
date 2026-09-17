@@ -10,3 +10,6 @@ build/
 #CMake stuff
 CMakeCache.txt
 CMakeFiles
+
+research/
+test data/

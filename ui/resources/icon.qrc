@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/resources">
+        <file>gridisk.png</file>
+        <file>gridsmall.png</file>
+        <file>add.svg</file>
+        <file>search.svg</file>
+        <file>help.svg</file>
+        <file>switch-partition.svg</file>
+    </qresource>
+</RCC>
