@@ -138,14 +138,18 @@ jobs:
 
           cp build/GRiDISKCOM.exe dist/
 
+          # --no-angle: MSYS2 Qt5 ships no ANGLE DLLs (libGLESv2.dll)
           windeployqt-qt5.exe \
             --release \
+            --no-angle \
             --no-translations \
+            --compiler-runtime \
             --dir dist \
             dist/GRiDISKCOM.exe
 
           test -f dist/GRiDISKCOM.exe
           test -f dist/Qt5Widgets.dll
+          test -f dist/libstdc++-6.dll
 
           powershell.exe -NoProfile -Command \
             "Compress-Archive -Path 'dist/*' -DestinationPath 'GRiDISKCOM-windows-${{ matrix.arch }}.zip' -CompressionLevel Optimal -Force"
@@ -181,22 +185,19 @@ jobs:
 
       - name: Determine version
         id: version
-        shell: bash
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          set -euxo pipefail
-
-          # Dots instead of dashes/slashes: dashes break RPM, slashes break DEB
+          ref="${GITHUB_REF_NAME#v}"
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            version="0.0.0.pr${PR_NUMBER}"
+            version="0.0.0"; suffix=".pr${PR_NUMBER}"
           else
-            version="${GITHUB_REF_NAME#v}"
-            version="${version//\//.}"
-            version="${version//-/.}"
+            version="$(grep -oE '^[0-9]+(\.[0-9]+)*' <<< "${ref}")" || version="0.0.0"
+            suffix="${ref#"${version}"}"
+            [[ "${suffix}" =~ ^[-.[:alnum:]]+$ ]] || suffix=""
           fi
-
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "suffix=${suffix}" >> "${GITHUB_OUTPUT}"
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v4.2.0
@@ -211,6 +212,7 @@ jobs:
         env:
           PLATFORM: ${{ matrix.platform }}
           PROJECT_VERSION: ${{ steps.version.outputs.version }}
+          PROJECT_VERSION_SUFFIX: ${{ steps.version.outputs.suffix }}
         run: |
           set -euxo pipefail
 
@@ -223,6 +225,7 @@ jobs:
               --platform "${PLATFORM}" \
               --build-arg PACKAGE="${package}" \
               --build-arg PROJECT_VERSION="${PROJECT_VERSION}" \
+              --build-arg PROJECT_VERSION_SUFFIX="${PROJECT_VERSION_SUFFIX}" \
               --cache-from "type=gha,scope=linux-${{ matrix.arch }}" \
               --cache-to "type=gha,mode=max,scope=linux-${{ matrix.arch }},ignore-error=true" \
               --file .docker/linux.Dockerfile \

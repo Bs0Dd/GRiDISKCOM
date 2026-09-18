@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(GRiDISKCOM_VERSION "0.0.0" CACHE STRING "GRiDISKCOM package version")
+set(GRiDISKCOM_VERSION "0.0.0" CACHE STRING "GRiDISKCOM package version (numeric: major[.minor[.patch[.tweak]]])")
+set(GRiDISKCOM_VERSION_SUFFIX "" CACHE STRING "GRiDISKCOM version suffix appended to package file names (e.g. -pr12), not part of project VERSION")
 
 add_subdirectory(ccos_image)
 
@@ -100,7 +101,7 @@ if(UNIX AND NOT APPLE)
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
     set(CPACK_PACKAGE_FILE_NAME
-        "${PROJECT_NAME}-${PROJECT_VERSION}-${CMAKE_SYSTEM_PROCESSOR}"
+        "${PROJECT_NAME}-${PROJECT_VERSION}${GRiDISKCOM_VERSION_SUFFIX}-${CMAKE_SYSTEM_PROCESSOR}"
     )
 
     include(CPack)
