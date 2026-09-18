@@ -1,11 +1,7 @@
-# syntax=docker/dockerfile:1
-
-ARG DEBIAN_BULLSEYE_DIGEST=sha256:e5b6442dd2e9684cf5e87d8338b5968f3b348636fc0be6d7850a381e3731a2bd
-
-FROM debian@${DEBIAN_BULLSEYE_DIGEST} AS build
+FROM debian:12-slim AS build
 
 ARG PACKAGE
-ARG PROJECT_VERSION
+ARG PROJECT_VERSION=0.0.0
 ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -30,30 +26,18 @@ COPY . .
 
 RUN set -eux; \
     case "${PACKAGE}" in \
-        DEB|deb) \
-            generator="DEB" \
-            ;; \
-        RPM|rpm) \
-            generator="RPM" \
-            ;; \
-        TGZ|tgz|tar.gz) \
-            generator="TGZ" \
-            ;; \
+        DEB) generator="DEB" ;; \
+        RPM) generator="RPM" ;; \
+        TGZ) generator="TGZ" ;; \
         *) \
             echo "Unsupported PACKAGE=${PACKAGE}" >&2 \
             exit 2 \
             ;; \
     esac; \
     case "${TARGETARCH}" in \
-        amd64) \
-            expected_arch="amd64" \
-            ;; \
-        arm64) \
-            expected_arch="arm64" \
-            ;; \
-        386) \
-            expected_arch="i386" \
-            ;; \
+        amd64) expected_arch="amd64" ;; \
+        arm64) expected_arch="arm64" ;; \
+        386) expected_arch="i386" ;; \
         *) \
             echo "Unsupported TARGETARCH=${TARGETARCH}" >&2 \
             exit 2 \
