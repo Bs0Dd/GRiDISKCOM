@@ -1,0 +1,10 @@
+.git/
+.github/
+build/
+build-tests/
+out/
+dist/
+research/
+test data/
+docs/
+*.md
