@@ -1,0 +1,226 @@
+name: build
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    name: Resolve version
+    runs-on: ubuntu-24.04
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="$(git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null || true)"
+
+          if [[ "${tag}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+          else
+            version="0.0.0"
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "Using package version: ${version}"
+
+  windows:
+    name: Windows ${{ matrix.arch }}
+    needs: prepare
+    runs-on: windows-2025
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            msystem: MINGW64
+            mingw_arch: x86_64
+          - arch: x86
+            msystem: MINGW32
+            mingw_arch: i686
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: >-
+            git
+            make
+            diffutils
+          cache: true
+          cache-on-failure: true
+
+      - name: Install build tools
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+
+          pacman -S --needed --noconfirm \
+            mingw-w64-${{ matrix.mingw_arch }}-toolchain \
+            mingw-w64-${{ matrix.mingw_arch }}-cmake \
+            mingw-w64-${{ matrix.mingw_arch }}-ninja
+
+      - name: Install Qt 5
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+
+          if [[ "${{ matrix.msystem }}" == "MINGW64" ]]; then
+            pacman -S --needed --noconfirm \
+              mingw-w64-x86_64-qt5-base \
+              mingw-w64-x86_64-qt5-tools
+          else
+            pacman -U --noconfirm \
+              https://repo.msys2.org/mingw/mingw32/mingw-w64-i686-qt5-base-5.15.16+kde+r130-1-any.pkg.tar.zst \
+              https://repo.msys2.org/mingw/mingw32/mingw-w64-i686-qt5-tools-5.15.16-1-any.pkg.tar.zst
+          fi
+
+      - name: Configure
+        shell: msys2 {0}
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euxo pipefail
+
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGRiDISKCOM_VERSION="${VERSION}"
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          cmake --build build --parallel
+
+      - name: Package
+        shell: msys2 {0}
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euxo pipefail
+
+          rm -rf dist
+          mkdir -p dist
+
+          cp build/GRiDISKCOM.exe dist/
+
+          windeployqt-qt5.exe \
+            --release \
+            --no-translations \
+            --dir dist \
+            dist/GRiDISKCOM.exe
+
+          test -f dist/GRiDISKCOM.exe
+          test -f dist/Qt5Widgets.dll
+
+          powershell.exe -NoProfile -Command \
+            "Compress-Archive -Path 'dist/*' -DestinationPath 'GRiDISKCOM-${env:VERSION}-windows-${env:ARCH}.zip' -CompressionLevel Optimal -Force"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: GRiDISKCOM-windows-${{ matrix.arch }}
+          path: GRiDISKCOM-${{ needs.prepare.outputs.version }}-windows-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+  linux:
+    name: Linux ${{ matrix.arch }}
+    needs: prepare
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: aarch64
+            platform: linux/arm64
+          - arch: x86
+            platform: linux/386
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64,386
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build packages
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          rm -rf out
+
+          for package in DEB RPM TGZ; do
+            mkdir -p "out/${package,,}"
+
+            docker buildx build \
+              --platform "${PLATFORM}" \
+              --build-arg PACKAGE="${package}" \
+              --build-arg PROJECT_VERSION="${VERSION}" \
+              --file .docker/linux.Dockerfile \
+              --output "type=local,dest=${PWD}/out/${package,,}" \
+              .
+            
+            find "out/${package,,}/out" \
+              -maxdepth 1 \
+              -type f \
+              -exec cp {} out/ \;
+          done
+
+          find out -maxdepth 1 -type f -print
+          test "$(find out -maxdepth 1 -type f | wc -l)" -eq 3
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: GRiDISKCOM-linux-${{ matrix.arch }}
+          path: |
+            out/*.deb
+            out/*.rpm
+            out/*.tar.gz
+          if-no-files-found: error

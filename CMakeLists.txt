@@ -2,9 +2,11 @@ cmake_minimum_required(VERSION 3.10)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(GRiDISKCOM_VERSION "0.0.0" CACHE STRING "GRiDISKCOM package version")
+
 add_subdirectory(ccos_image)
 
-project(GRiDISKCOM LANGUAGES CXX C)
+project(GRiDISKCOM VERSION ${GRiDISKCOM_VERSION} LANGUAGES CXX C)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -84,4 +86,22 @@ if(WIN32)
     target_link_libraries(GRiDISKCOM PRIVATE Qt5::Widgets Qt${QT_VERSION_MAJOR}::Widgets ccos_api)
 else()
     target_link_libraries(GRiDISKCOM PRIVATE Qt5::Widgets Qt${QT_VERSION_MAJOR}::Widgets ccos_api -no-pie)
+endif()
+
+if(UNIX AND NOT APPLE)
+    install(
+        TARGETS GRiDISKCOM
+        RUNTIME DESTINATION bin
+    )
+
+    set(CPACK_GENERATOR "DEB;RPM;TGZ")
+
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Bs0Dd")
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+
+    set(CPACK_PACKAGE_FILE_NAME
+        "${PROJECT_NAME}-${PROJECT_VERSION}-${CMAKE_SYSTEM_PROCESSOR}"
+    )
+
+    include(CPack)
 endif()
