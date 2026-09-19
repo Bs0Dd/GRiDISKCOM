@@ -80,12 +80,6 @@ jobs:
               mingw-w64-x86_64-ninja
               mingw-w64-x86_64-qt5-base
               mingw-w64-x86_64-qt5-tools
-          - arch: x86
-            msystem: MINGW32
-            packages: |
-              mingw-w64-i686-gcc
-              mingw-w64-i686-cmake
-              mingw-w64-i686-ninja
 
     steps:
       - name: Checkout
@@ -100,16 +94,6 @@ jobs:
           update: true
           cache: true
           install: ${{ matrix.packages }}
-
-      - name: Install Qt 5 (i686, pinned)
-        if: matrix.arch == 'x86'
-        shell: msys2 {0}
-        run: |
-          set -euxo pipefail
-
-          pacman -U --noconfirm \
-            https://repo.msys2.org/mingw/mingw32/mingw-w64-i686-qt5-base-5.15.16+kde+r130-1-any.pkg.tar.zst \
-            https://repo.msys2.org/mingw/mingw32/mingw-w64-i686-qt5-tools-5.15.16-1-any.pkg.tar.zst
 
       - name: Configure
         shell: msys2 {0}
