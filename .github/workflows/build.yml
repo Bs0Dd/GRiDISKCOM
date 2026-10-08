@@ -1,0 +1,239 @@
+name: build
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests (Linux amd64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libcriterion-dev \
+            ninja-build
+
+      - name: Configure
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake -S ccos_image -B build-tests \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCCOS_ENABLE_TESTS=ON
+
+      - name: Build
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake --build build-tests --parallel
+
+      - name: Test
+        shell: bash
+        working-directory: build-tests
+        run: |
+          set -euxo pipefail
+
+          ctest --output-on-failure
+
+  windows:
+    name: Windows ${{ matrix.arch }}
+    runs-on: windows-2025
+    timeout-minutes: 40
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            msystem: MINGW64
+            packages: |
+              mingw-w64-x86_64-gcc
+              mingw-w64-x86_64-cmake
+              mingw-w64-x86_64-ninja
+              mingw-w64-x86_64-qt5-base
+              mingw-w64-x86_64-qt5-tools
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2.32.0
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          cache: true
+          install: ${{ matrix.packages }}
+
+      - name: Configure
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${MINGW_PREFIX}"
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+
+          cmake --build build --parallel
+
+      - name: Package
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+
+          rm -rf dist
+          mkdir -p dist
+
+          cp build/GRiDISKCOM.exe dist/
+
+          # --no-angle: MSYS2 Qt5 ships no ANGLE DLLs (libGLESv2.dll)
+          windeployqt-qt5.exe \
+            --release \
+            --no-angle \
+            --no-translations \
+            --compiler-runtime \
+            --dir dist \
+            dist/GRiDISKCOM.exe
+
+          test -f dist/GRiDISKCOM.exe
+          test -f dist/Qt5Widgets.dll
+          test -f dist/libstdc++-6.dll
+
+          powershell.exe -NoProfile -Command \
+            "Compress-Archive -Path 'dist/*' -DestinationPath 'GRiDISKCOM-windows-${{ matrix.arch }}.zip' -CompressionLevel Optimal -Force"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: GRiDISKCOM-windows-${{ matrix.arch }}
+          path: GRiDISKCOM-windows-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+  linux:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: aarch64
+            platform: linux/arm64
+          - arch: x86
+            platform: linux/386
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Determine version
+        id: version
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          ref="${GITHUB_REF_NAME#v}"
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            version="0.0.0"; suffix=".pr${PR_NUMBER}"
+          else
+            version="$(grep -oE '^[0-9]+(\.[0-9]+)*' <<< "${ref}")" || version="0.0.0"
+            suffix="${ref#"${version}"}"
+            [[ "${suffix}" =~ ^[-.[:alnum:]]+$ ]] || suffix=""
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "suffix=${suffix}" >> "${GITHUB_OUTPUT}"
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v4.2.0
+        with:
+          platforms: arm64,386
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v4.3.0
+
+      - name: Build packages
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          PROJECT_VERSION: ${{ steps.version.outputs.version }}
+          PROJECT_VERSION_SUFFIX: ${{ steps.version.outputs.suffix }}
+        run: |
+          set -euxo pipefail
+
+          rm -rf out
+
+          for package in DEB RPM TGZ; do
+            mkdir -p "out/${package,,}"
+
+            docker buildx build \
+              --platform "${PLATFORM}" \
+              --build-arg PACKAGE="${package}" \
+              --build-arg PROJECT_VERSION="${PROJECT_VERSION}" \
+              --build-arg PROJECT_VERSION_SUFFIX="${PROJECT_VERSION_SUFFIX}" \
+              --cache-from "type=gha,scope=linux-${{ matrix.arch }}" \
+              --cache-to "type=gha,mode=max,scope=linux-${{ matrix.arch }},ignore-error=true" \
+              --file .docker/linux.Dockerfile \
+              --output "type=local,dest=${PWD}/out/${package,,}" \
+              .
+
+            find "out/${package,,}/out" \
+              -maxdepth 1 \
+              -type f \
+              -exec cp {} out/ \;
+          done
+
+          test "$(find out -maxdepth 1 -type f -name '*.deb' | wc -l)" -eq 1
+          test "$(find out -maxdepth 1 -type f -name '*.rpm' | wc -l)" -eq 1
+          test "$(find out -maxdepth 1 -type f -name '*.tar.gz' | wc -l)" -eq 1
+
+          ls -lh out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: GRiDISKCOM-linux-${{ matrix.arch }}
+          path: |
+            out/*.deb
+            out/*.rpm
+            out/*.tar.gz
+          if-no-files-found: error
