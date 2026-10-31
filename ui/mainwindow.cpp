@@ -233,27 +233,44 @@ int readFileQt(QString path, uint8_t** file_data, size_t* file_size, QWidget* pa
         return -1;
     }
 
-    *file_size = ilfile.size();
+    const qint64 size = lfile.size();
+    if (size < 0){
+        QMessageBox::critical(parent, "Failed to determine file size",
+                        QString("Unable to determine the size of file \"%1\".").arg(path));
+        return -1;
+    }
 
-    *file_data = (uint8_t*)calloc(*file_size, sizeof(uint8_t));
+    constexpr qint64 maxFileSize = 0xFFFFLL * 512 * 4;
+    if (size > maxFileSize){
+        QMessageBox::critical(parent, "File too large",
+                        QString("File \"%1\" is too large. The maximum supported size is %2 bytes.")
+                            .arg(path).arg(maxFileSize));
+        return -1;
+    }
 
-    if (file_data == nullptr){
+    // Keep a valid buffer for empty files even if calloc(0, ...) returns null.
+    uint8_t* data = (uint8_t*)calloc(size == 0 ? 1 : static_cast<size_t>(size), sizeof(uint8_t));
+
+    if (data == nullptr){
         QMessageBox::critical(parent, "Failed to allocate memory",
-                        QString("Failed to allocate %1 bytes for image. Please free up some RAM.").arg(*file_size));
+                        QString("Failed to allocate %1 bytes for image. Please free up some RAM.").arg(size));
         return -1;
     }
 
-    qint64 readed = lfile.read((char*)(*file_data), *file_size);
-
-    if (readed == -1){
-        QMessageBox::critical(parent, "Failed to read data",
-                        QString("Failed to read data from file \"%1\". Please check the file.").arg(path));
-
-        free(*file_data);
-        *file_data = nullptr;
-        return -1;
+    qint64 totalRead = 0;
+    while (totalRead < size){
+        const qint64 bytesRead = lfile.read(reinterpret_cast<char*>(data) + totalRead, size - totalRead);
+        if (bytesRead <= 0){
+            free(data);
+            QMessageBox::critical(parent, "Failed to read data",
+                            QString("Failed to read all data from file \"%1\". Please check the file.").arg(path));
+            return -1;
+        }
+        totalRead += bytesRead;
     }
 
+    *file_data = data;
+    *file_size = static_cast<size_t>(size);
     return 0;
 }
 
