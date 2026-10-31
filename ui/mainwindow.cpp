@@ -1128,6 +1128,12 @@ void MainWindow::CopyLoc() {
         return;
     }
 
+    // Panel refreshes can reorder inodes, so keep the original copy sources.
+    QVector<ccos_inode_t*> sources;
+    sources.reserve(selected.size());
+    for (int idx : selected)
+        sources.append(panel.inodes[idx]);
+
     if (panel.in_subdir){
         ccos_inode_t* root = ccos_get_root_dir(panel.disk);
 
@@ -1154,7 +1160,7 @@ void MainWindow::CopyLoc() {
         }
 
         int chosenIdx = items.indexOf(chosen);
-        ccos_inode_t* firfil = panel.inodes[selected[0]];
+        ccos_inode_t* firfil = sources.first();
         ccos_inode_t* destination = dirdata[chosenIdx];
         free(dirdata);
 
@@ -1164,18 +1170,18 @@ void MainWindow::CopyLoc() {
             return;
         }
 
-        for (int idx : selected){
-            if (!copyFile(panel.disk, panel.inodes[idx], active_panel, destination))
+        for (ccos_inode_t* source : sources){
+            if (!copyFile(panel.disk, source, active_panel, destination))
                 return;
         }
         panel.modified = true;
         refreshPanel(active_panel);
     }
     else{
-        for (int idx : selected){
+        for (ccos_inode_t* source : sources){
             char basename[CCOS_MAX_FILE_NAME];
             memset(basename, 0, CCOS_MAX_FILE_NAME);
-            ccos_parse_file_name(panel.inodes[idx], basename, nullptr, nullptr, nullptr);
+            ccos_parse_file_name(source, basename, nullptr, nullptr, nullptr);
 
             QString name;
             while (true){
@@ -1188,7 +1194,7 @@ void MainWindow::CopyLoc() {
 
                     uint16_t fils = 0;
                     ccos_inode_t** dirdata = nullptr;
-                    if (!readDirectoryQt(panel.disk, panel.inodes[idx], &fils, &dirdata, this))
+                    if (!readDirectoryQt(panel.disk, source, &fils, &dirdata, this))
                         return;
 
                     ccos_inode_t* newdir = ccos_create_dir(panel.disk, root, name.toStdString().c_str());
