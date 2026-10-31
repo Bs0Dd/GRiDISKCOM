@@ -854,6 +854,7 @@ int MainWindow::AddFiles(QStringList files, ccos_inode_t* copyTo){
                 QMessageBox::critical(this, "Error",
                                 QString("Can't add \"%1\" to the image! Skipping...").arg(fname.c_str()));
             }
+            free(fdat);
         }
     }
     if (files.size() != 0){
