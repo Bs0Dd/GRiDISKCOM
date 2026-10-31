@@ -106,8 +106,8 @@ public slots:
     void NewImage();
     void OpenImg();
     void Rename();
-    void Save();
-    void SaveAs();
+    bool Save();
+    bool SaveAs();
     void SavePart();
     void Search();
     void SetActivePart();

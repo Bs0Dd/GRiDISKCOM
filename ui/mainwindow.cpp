@@ -6,6 +6,7 @@
 
 #include <QDir>
 #include <QRegularExpression>
+#include <QSaveFile>
 #include <QTemporaryFile>
 
 #include <cstdio>
@@ -258,7 +259,7 @@ int readFileQt(QString path, uint8_t** file_data, size_t* file_size, QWidget* pa
 
 //*Write file from uint8_t* array
 int saveFileQt(QString path, uint8_t* file_data, size_t file_size, QWidget* parent){
-    QFile lfile(path);
+    QSaveFile lfile(path);
     if (!lfile.open(QIODevice::WriteOnly)){
         QMessageBox::critical(parent, "Unable to open/create file",
                         QString("Unable to open/create file \"%1\". Please check the file.").arg(path));
@@ -267,7 +268,7 @@ int saveFileQt(QString path, uint8_t* file_data, size_t file_size, QWidget* pare
 
     qint64 written = lfile.write((char*)(file_data), file_size);
 
-    if (written == -1){
+    if (written != static_cast<qint64>(file_size) || !lfile.commit()){
         QMessageBox::critical(parent, "Failed to write data",
                         QString("Failed to write data to file \"%1\"!").arg(path));
         return -1;
@@ -943,27 +944,32 @@ void MainWindow::openAnotherPartition(int targetPanel, int sourcePanel) {
 }
 
 void MainWindow::closeEvent(QCloseEvent *event){
-    int backdstat = active_panel;
+    const int backdstat = active_panel;
     for (int i = 0; i < 2; i++){
         if (panels[i] && panels[i]->modified){
             int ret = saveBox(i == 0 ? "I" : "II", this);
             if (ret == 1){
                 active_panel = i;
-                Save();
+                const bool saved = Save();
                 active_panel = backdstat;
+                if (!saved) {
+                    event->ignore();
+                    return;
+                }
             }
-            else if (ret == 0)
+            else if (ret == 0) {
                 event->ignore();
+                return;
+            }
         }
     }
+    event->accept();
 }
 
 int MainWindow::CloseImg(){
     if (panels[active_panel] && panels[active_panel]->modified){
         int ret = saveBox((active_panel == 0) ? "I" : "II", this);
-        if (ret == 1)
-            MainWindow::Save();
-        else if (ret == 0)
+        if (ret == 0 || (ret == 1 && !Save()))
             return 0;
     }
 
@@ -1972,8 +1978,10 @@ void MainWindow::Rename(){
     }
 }
 
-void MainWindow::Save(){
-    if (!panels[active_panel] || panels[active_panel]->path == "")
+bool MainWindow::Save(){
+    if (!panels[active_panel])
+        return false;
+    if (panels[active_panel]->path == "")
         return SaveAs();
 
     if (panels[active_panel]->is_imd) {
@@ -1981,12 +1989,12 @@ void MainWindow::Save(){
                         "This image was opened from an IMD file.\n"
                         "Saving back to IMD format is not supported.\n\n"
                         "Please use \"Save as\" to export the image as a .img file.");
-        return;
+        return false;
     }
 
     auto& panel = *panels[active_panel];
     if (!panel.modified)
-        return;
+        return true;
 
     int res;
     if (panel.hdd_mode)
@@ -1997,7 +2005,7 @@ void MainWindow::Save(){
     if (res == -1){
         QMessageBox::critical(this, "Unable to save file",
                         QString("Unable to save file \"%1\". Please check the path.").arg(panel.path));
-        return;
+        return false;
     }
     panel.modified = false;
     int other = !active_panel;
@@ -2007,16 +2015,17 @@ void MainWindow::Save(){
     updatePanelTitle(active_panel);
     if (shared)
         updatePanelTitle(other);
+    return true;
 }
 
-void MainWindow::SaveAs(){
+bool MainWindow::SaveAs(){
     if (!panels[active_panel])
-        return;
+        return false;
 
     auto& panel = *panels[active_panel];
     QString nameQ = QFileDialog::getSaveFileName(this, tr("Save as"), "", "GRiD Image Files (*.img)");
     if (nameQ == "")
-        return;
+        return false;
 
     int res;
     if (panel.hdd_mode)
@@ -2027,7 +2036,7 @@ void MainWindow::SaveAs(){
     if (res == -1){
         QMessageBox::critical(this, "Unable to save file",
                               QString("Unable to save file \"%1\". Please check the path.").arg(nameQ));
-        return;
+        return false;
     }
     if (panel.is_imd){
         // The old path pointed to a temporary converted image; drop it and
@@ -2049,6 +2058,7 @@ void MainWindow::SaveAs(){
         if (shared)
             updatePanelTitle(other);
     }
+    return true;
 }
 
 void MainWindow::SavePart(){
