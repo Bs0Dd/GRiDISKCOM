@@ -2023,8 +2023,15 @@ bool MainWindow::SaveAs(){
         return false;
 
     auto& panel = *panels[active_panel];
-    QString nameQ = QFileDialog::getSaveFileName(this, tr("Save as"), "", "GRiD Image Files (*.img)");
-    if (nameQ == "")
+    QFileDialog dialog(this, tr("Save as"));
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+    dialog.setFileMode(QFileDialog::AnyFile);
+    dialog.setNameFilter("GRiD Image Files (*.img)");
+    dialog.setDefaultSuffix("img");
+    if (dialog.exec() != QDialog::Accepted)
+        return false;
+    const QString nameQ = dialog.selectedFiles().value(0);
+    if (nameQ.isEmpty())
         return false;
 
     int res;
