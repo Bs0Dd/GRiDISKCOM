@@ -144,10 +144,26 @@ int tildaCheck(std::string parse_str){
     return 0;
 }
 
+static bool readDirectoryQt(ccos_disk_t* disk, ccos_inode_t* directory,
+                            uint16_t* count, ccos_inode_t*** entries, QWidget* parent) {
+    ccos_error_t error = ccos_get_dir_contents(disk, directory, count, entries);
+    if (error != CCOS_OK) {
+        free(*entries);
+        *entries = nullptr;
+        *count = 0;
+        QMessageBox::critical(parent, "Directory read error",
+            QString("Can't read directory \"%1\": %2\nThe operation was stopped.")
+                .arg(short_string_to_qstring(ccos_get_file_name(directory)),
+                     QString::fromLatin1(ccos_error_string(error))));
+        return false;
+    }
+    return true;
+}
+
 //*Check if space is enough to add files
 int checkFreeSp(DiskPanel& from, DiskPanel& to,
                 const QVector<int>& fileIndices,
-                size_t* needs){ //*For copy
+                size_t* needs, QWidget* parent){ //*For copy
 
     size_t frsp = 0;
     if (ccos_calc_free_space(to.disk, &frsp) != CCOS_OK){
@@ -160,7 +176,8 @@ int checkFreeSp(DiskPanel& from, DiskPanel& to,
             if (ccos_is_dir(file)){
                 uint16_t fils = 0;
                 ccos_inode_t** dirdata = nullptr;
-                ccos_get_dir_contents(from.disk, file, &fils, &dirdata);
+                if (!readDirectoryQt(from.disk, file, &fils, &dirdata, parent))
+                    return -3;
 
                 for(int j = 0; j < fils; j++){
                     *needs += dirdata[j]->desc.file_size;
@@ -324,16 +341,18 @@ int dumpDirQt(ccos_disk_t* disk, ccos_inode_t* dir, QString path, QWidget* paren
     }
     replace_char_in_place(name, '/', '_');
 
+    uint16_t fils = 0;
+    ccos_inode_t** dirdata = nullptr;
+    if (!readDirectoryQt(disk, dir, &fils, &dirdata, parent))
+        return -1;
+
     QString dpath = QDir(path).filePath(name);
     if (!QDir(dpath).exists() && !QDir().mkdir(dpath)){
+            free(dirdata);
             QMessageBox::critical(parent, "Failed to create directory",
                           QString("Failed to create directory \"%1\"!").arg(name));
             return -1;
     }
-
-    uint16_t fils = 0;
-    ccos_inode_t** dirdata = nullptr;
-    ccos_get_dir_contents(disk, dir,&fils, &dirdata);
 
     for(int i = 0; i < fils; i++){
         if (ccos_is_dir(dirdata[i]))
@@ -388,7 +407,8 @@ QVector<PanelFileEntry> MainWindow::buildFileEntries(int panel_idx, ccos_inode_t
 
     uint16_t fils = 0;
     ccos_inode_t** dirdata = nullptr;
-    ccos_get_dir_contents(panel.disk, directory, &fils, &dirdata);
+    if (!readDirectoryQt(panel.disk, directory, &fils, &dirdata, this))
+        return {};
 
     QVector<PanelFileEntry> entries;
     entries.reserve(fils);
@@ -414,9 +434,9 @@ QVector<PanelFileEntry> MainWindow::buildFileEntries(int panel_idx, ccos_inode_t
     return entries;
 }
 
-QVector<PanelFileEntry> MainWindow::buildSearchResults(int panel_idx, const QString& query) {
+QVector<PanelFileEntry> MainWindow::buildSearchResults(int panel_idx, const QString& query,
+                                                      std::vector<ccos_inode_t*>& inodes) {
     auto& panel = *panels[panel_idx];
-    panel.inodes.clear();
 
     const SearchQuery search = parseSearchQuery(query);
     if (search.filePattern.isEmpty())
@@ -442,12 +462,12 @@ QVector<PanelFileEntry> MainWindow::buildSearchResults(int panel_idx, const QStr
                                 search.directoryPatterns.constFirst() == "*";
     QVector<SearchDirectory> directories {{startsFromRoot ? root : panel.current_dir,
                                             startsFromRoot ? QString() : currentPath}};
-    auto appendSubdirectories = [&panel](const SearchDirectory& directory,
+    auto appendSubdirectories = [this, &panel](const SearchDirectory& directory,
                                          QVector<SearchDirectory>* children) {
         uint16_t count = 0;
         ccos_inode_t** entries = nullptr;
-        if (ccos_get_dir_contents(panel.disk, directory.inode, &count, &entries) != CCOS_OK)
-            return;
+        if (!readDirectoryQt(panel.disk, directory.inode, &count, &entries, this))
+            return false;
 
         for (int index = 0; index < count; ++index) {
             ccos_inode_t* entry = entries[index];
@@ -460,6 +480,7 @@ QVector<PanelFileEntry> MainWindow::buildSearchResults(int panel_idx, const QStr
             }
         }
         free(entries);
+        return true;
     };
 
     for (const QString& pattern : search.directoryPatterns) {
@@ -470,12 +491,14 @@ QVector<PanelFileEntry> MainWindow::buildSearchResults(int panel_idx, const QStr
             next = directories;
             for (int index = 0; index < next.size(); ++index) {
                 const SearchDirectory directory = next[index];
-                appendSubdirectories(directory, &next);
+                if (!appendSubdirectories(directory, &next))
+                    return {};
             }
         } else {
             for (const SearchDirectory& directory : directories) {
                 QVector<SearchDirectory> children;
-                appendSubdirectories(directory, &children);
+                if (!appendSubdirectories(directory, &children))
+                    return {};
                 for (const SearchDirectory& child : children) {
                     const QString name = child.path.section('`', -1);
                     if (wildcardMatches(name, pattern))
@@ -492,8 +515,10 @@ QVector<PanelFileEntry> MainWindow::buildSearchResults(int panel_idx, const QStr
     for (const SearchDirectory& directory : directories) {
         uint16_t count = 0;
         ccos_inode_t** entries = nullptr;
-        if (ccos_get_dir_contents(panel.disk, directory.inode, &count, &entries) != CCOS_OK)
-            continue;
+        if (!readDirectoryQt(panel.disk, directory.inode, &count, &entries, this)) {
+            inodes.clear();
+            return {};
+        }
 
         for (int index = 0; index < count; ++index) {
             ccos_inode_t* entry = entries[index];
@@ -511,7 +536,7 @@ QVector<PanelFileEntry> MainWindow::buildSearchResults(int panel_idx, const QStr
             result.creationDate = ccosDateToQDate(entry->desc.creation_date);
             result.modificationDate = ccosDateToQDate(entry->desc.mod_date);
             result.expirationDate = ccosDateToQDate(entry->desc.expiration_date);
-            panel.inodes.push_back(entry);
+            inodes.push_back(entry);
             results.append(std::move(result));
         }
         free(entries);
@@ -522,7 +547,10 @@ QVector<PanelFileEntry> MainWindow::buildSearchResults(int panel_idx, const QStr
 
 void MainWindow::showSearchResults(int panel_idx) {
     auto& panel = *panels[panel_idx];
-    panelWidget(panel_idx)->setFiles(buildSearchResults(panel_idx, panel.search_query), false);
+    std::vector<ccos_inode_t*> inodes;
+    auto results = buildSearchResults(panel_idx, panel.search_query, inodes);
+    panel.inodes = std::move(inodes);
+    panelWidget(panel_idx)->setFiles(results, false);
 }
 
 //*Get directory listing and push it to the panel widget
@@ -984,7 +1012,9 @@ void MainWindow::Copy(){
         if (msgBox.exec() != QMessageBox::Yes)
             return;
         size_t needs = 0;
-        int retop = checkFreeSp(src, dst, selected, &needs);
+        int retop = checkFreeSp(src, dst, selected, &needs, this);
+        if (retop == -3)
+            return;
         if (retop == -2) {
             QMessageBox::critical(this, "Calculation error",
                             "Program can't calculate free space in the image!");
@@ -1007,15 +1037,21 @@ void MainWindow::Copy(){
                 }
                 char newname[CCOS_MAX_FILE_NAME] = {};
                 ccos_parse_file_name(file, newname, nullptr, nullptr, nullptr);
+                uint16_t fils = 0;
+                ccos_inode_t** dirdata = nullptr;
+                if (!readDirectoryQt(src.disk, file, &fils, &dirdata, this)) {
+                    if (dst.modified)
+                        refreshPanel(other);
+                    return;
+                }
                 ccos_inode_t* newdir = ccos_create_dir(dst.disk, ccos_get_root_dir(dst.disk), newname);
                 if (newdir == nullptr){
+                            free(dirdata);
                             QMessageBox::critical(this, "Failed to create folder",
                                             "Program can't create a folder in the image!");
                             return;
                 }
-                uint16_t fils = 0;
-                ccos_inode_t** dirdata = nullptr;
-                ccos_get_dir_contents(src.disk, file, &fils, &dirdata);
+                dst.modified = true;
                 for (int c = 0; c < fils; c++) {
                     if (!copyFile(src.disk, dirdata[c], other, newdir)) {
                         free(dirdata);
@@ -1053,7 +1089,9 @@ void MainWindow::CopyLoc() {
     }
 
     size_t needs = 0;
-    int retop = checkFreeSp(panel, panel, selected, &needs);
+    int retop = checkFreeSp(panel, panel, selected, &needs, this);
+    if (retop == -3)
+        return;
     if (retop == -2) {
         QMessageBox::critical(this, "Calculation error",
                         "Program can't calculate free space in the image!");
@@ -1072,7 +1110,8 @@ void MainWindow::CopyLoc() {
 
         uint16_t fils = 0;
         ccos_inode_t** dirdata = nullptr;
-        ccos_get_dir_contents(panel.disk, root, &fils, &dirdata);
+        if (!readDirectoryQt(panel.disk, root, &fils, &dirdata, this))
+            return;
 
         QStringList items;
         for (int i = 0; i < fils; i++){
@@ -1124,16 +1163,18 @@ void MainWindow::CopyLoc() {
                 else if (validString(name, true, this) != -1){
                     ccos_inode_t* root = ccos_get_root_dir(panel.disk);
 
+                    uint16_t fils = 0;
+                    ccos_inode_t** dirdata = nullptr;
+                    if (!readDirectoryQt(panel.disk, panel.inodes[idx], &fils, &dirdata, this))
+                        return;
+
                     ccos_inode_t* newdir = ccos_create_dir(panel.disk, root, name.toStdString().c_str());
                     if (newdir == nullptr){
+                        free(dirdata);
                         QMessageBox::critical(this, "Failed to create folder",
                                         "Program can't create a folder in the image!");
                         break;
                     }
-
-                    uint16_t fils = 0;
-                    ccos_inode_t** dirdata = nullptr;
-                    ccos_get_dir_contents(panel.disk, panel.inodes[idx], &fils, &dirdata);
 
                     for(int i = 0; i < fils; i++){
                         if (!copyFile(panel.disk, dirdata[i], active_panel, newdir)) {

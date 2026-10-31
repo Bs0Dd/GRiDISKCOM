@@ -165,7 +165,8 @@ private:
     void doPreview(int panel_idx, ccos_inode_t* file);
 
     QVector<PanelFileEntry> buildFileEntries(int panel_idx, ccos_inode_t* directory);
-    QVector<PanelFileEntry> buildSearchResults(int panel_idx, const QString& query);
+    QVector<PanelFileEntry> buildSearchResults(int panel_idx, const QString& query,
+                                              std::vector<ccos_inode_t*>& inodes);
     void showSearchResults(int panel_idx);
 };
 #endif // MAINWINDOW_H
