@@ -951,6 +951,23 @@ int MainWindow::CloseImg(){
     return 1;
 }
 
+bool MainWindow::copyFile(ccos_disk_t* source, ccos_inode_t* file, int destinationPanel,
+                          ccos_inode_t* directory) {
+    auto& destination = *panels[destinationPanel];
+    // A failed copy can still change directory allocation before rolling back.
+    destination.modified = true;
+    ccos_error_t error = ccos_copy_file(source, file, destination.disk, directory);
+    if (error != CCOS_OK) {
+        QMessageBox::critical(this, "Copy error",
+            QString("Can't copy \"%1\": %2\nCopying stopped. Files already copied remain in the image.")
+                .arg(short_string_to_qstring(ccos_get_file_name(file)),
+                     QString::fromLatin1(ccos_error_string(error))));
+        refreshPanel(destinationPanel);
+        return false;
+    }
+    return true;
+}
+
 void MainWindow::Copy(){
     int other = !active_panel;
     if (panels[active_panel] && panels[other]){
@@ -1000,8 +1017,12 @@ void MainWindow::Copy(){
                 ccos_inode_t** dirdata = nullptr;
                 ccos_get_dir_contents(src.disk, file, &fils, &dirdata);
                 for (int c = 0; c < fils; c++) {
-                    ccos_copy_file(src.disk, dirdata[c], dst.disk, newdir);
+                    if (!copyFile(src.disk, dirdata[c], other, newdir)) {
+                        free(dirdata);
+                        return;
+                    }
                 }
+                free(dirdata);
             }
             else {
                 if (dst.current_dir->header.file_id == ccos_get_root_dir(dst.disk)->header.file_id) {
@@ -1009,7 +1030,8 @@ void MainWindow::Copy(){
                                     "Files can be copied only to non-root folder!");
                     return;
                 }
-                ccos_copy_file(src.disk, file, dst.disk, dst.current_dir);
+                if (!copyFile(src.disk, file, other, dst.current_dir))
+                    return;
             }
         }
         dst.modified = true;
@@ -1064,21 +1086,25 @@ void MainWindow::CopyLoc() {
         QString chosen = QInputDialog::getItem(this, tr("Select the directory"),
                                                tr("Select the directory where the file(s) will be copied:"),
                                                items, 0, false, &ok);
-        if (!ok || chosen.isEmpty())
+        if (!ok || chosen.isEmpty()) {
+            free(dirdata);
             return;
+        }
 
         int chosenIdx = items.indexOf(chosen);
         ccos_inode_t* firfil = panel.inodes[selected[0]];
+        ccos_inode_t* destination = dirdata[chosenIdx];
+        free(dirdata);
 
-        if (dirdata[chosenIdx]->header.file_id == firfil->desc.dir_file_id){
+        if (destination->header.file_id == firfil->desc.dir_file_id){
             QMessageBox::critical(this, "Copy to parent dir",
                                     "Can't copy files to it's parent dir!");
             return;
         }
 
         for (int idx : selected){
-            ccos_copy_file(panel.disk, panel.inodes[idx],
-                    panel.disk, dirdata[chosenIdx]);
+            if (!copyFile(panel.disk, panel.inodes[idx], active_panel, destination))
+                return;
         }
         panel.modified = true;
         refreshPanel(active_panel);
@@ -1110,9 +1136,12 @@ void MainWindow::CopyLoc() {
                     ccos_get_dir_contents(panel.disk, panel.inodes[idx], &fils, &dirdata);
 
                     for(int i = 0; i < fils; i++){
-                        ccos_copy_file(panel.disk, dirdata[i],
-                                panel.disk, newdir);
+                        if (!copyFile(panel.disk, dirdata[i], active_panel, newdir)) {
+                            free(dirdata);
+                            return;
+                        }
                     }
+                    free(dirdata);
                     panel.modified = true;
                     refreshPanel(active_panel);
                     break;

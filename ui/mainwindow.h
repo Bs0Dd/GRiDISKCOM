@@ -153,6 +153,8 @@ private:
     void saveCurrentViewState(int panel_idx);
     void applyViewState(int panel_idx, ccos_inode_t* directory);
     void refreshPanel(int panel_idx);
+    bool copyFile(ccos_disk_t* source, ccos_inode_t* file, int destinationPanel,
+                  ccos_inode_t* directory);
 
     void updatePanelTitle(int panel_idx);
     void refreshActivePanelUI();
