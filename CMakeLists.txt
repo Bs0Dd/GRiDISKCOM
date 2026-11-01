@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(GRiDISKCOM_VERSION "0.0.0" CACHE STRING "GRiDISKCOM package version (numeric: major[.minor[.patch[.tweak]]])")
+set(GRiDISKCOM_VERSION "0.42.0" CACHE STRING "GRiDISKCOM package version (numeric: major[.minor[.patch[.tweak]]])")
 set(GRiDISKCOM_VERSION_SUFFIX "" CACHE STRING "GRiDISKCOM version suffix appended to package file names (e.g. -pr12), not part of project VERSION")
 
 add_subdirectory(ccos_image)
@@ -33,6 +33,8 @@ include_directories(common)
 
 add_executable(GRiDISKCOM ${GUI_TYPE}
         main.cpp
+        appversion.rc
+        appversion.h
         common/imd2raw.c
         common/imd2raw.h
         common/diskconstants.h
@@ -80,7 +82,6 @@ add_executable(GRiDISKCOM ${GUI_TYPE}
         ui/preview/database.cpp
         ui/preview/database.h
         ui/resources/icon.qrc
-        execico.rc
         )
 
 if(WIN32)

@@ -5,7 +5,7 @@
 #include <QUrl>
 #include "ui_about.h"
 
-#define _PVER_ "0.40-beta"
+#include "appversion.h"
 
 namespace Ui {
 class AboutDlg;

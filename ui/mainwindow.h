@@ -18,6 +18,8 @@
 #include "dialogs/rename.h"
 #include "dialogs/version.h"
 
+#include "appversion.h"
+
 #include <ccos_image/ccos_disk.h>
 #include <ccos_image/ccos_format.h>
 #include <ccos_image/ccos_image.h>
